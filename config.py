@@ -1,1 +1,2 @@
-TG_T = 'put your token here'
+'''Configuration file'''
+TG_T = 'XXXXXXXXXX:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
