@@ -5,6 +5,7 @@ from aiogram.filters import Command
 
 import kb
 import text
+import bs4_based_parser
 
 router = Router()
 
@@ -61,3 +62,56 @@ async def debug_message_handler(message):
         await message.answer(text_out)
     else:
         await message.message.edit_text(text_out, reply_markup=kb.iexit_kb)
+
+
+@router.callback_query(F.data == 'parser')
+@router.message(Command('parser'))
+async def parser_handler(message):
+    '''Shows the parser message'''
+    params = {
+        'text': 'python',
+        'part_time': 'temporary_job_true',
+        'professional_role': 96,
+        'search_field': ['name', 'company_name', 'description'],
+        'enable_snippets': False,
+        'salary': 270_000,
+        # 'items_on_page': 20,
+        'items_on_page': 2,
+        'only_with_salary': True,
+        'ored_clusters': True,
+        'order_by': 'publication_time',
+        'status': 'non_archived'
+    }
+
+    response = bs4_based_parser.get_response(
+        url=bs4_based_parser.RESOURCE_URL,
+        headers=bs4_based_parser.RESOURCE_HEADER,
+        params=params
+    )
+
+    # response = parser.tree_traversal(response, params)
+    host, results, total_pages = bs4_based_parser.get_general_info(
+        response, params
+    )
+    response = bs4_based_parser.simply_traversal(response, host)
+
+    text_out = []
+    for index, value in response.items():
+        key, name, area, salary, url, employer = value.values()
+
+        out = (f'''[{index}] {key} {url}\n\t{name}\n\t'''
+               f''''{employer}', {area}\n\t{salary}\n''')
+
+        text_out.append(out)
+
+    text_out.extend(['_'*40, f'{results = }', f'{total_pages = }'])
+
+    text_out = '\n'.join(text_out)
+
+    if isinstance(message, Message):
+        await message.answer(text_out)
+    else:
+        await message.message.edit_text(
+            text_out, disable_web_page_preview=True,
+            reply_markup=kb.nav_parser_kb
+        )

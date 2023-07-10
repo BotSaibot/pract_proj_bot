@@ -9,6 +9,8 @@ main_menu_buttons = [
                           callback_data='show_id')],
     [InlineKeyboardButton(text=text.BUTTON_DEBUG,
                           callback_data='debug')],
+    [InlineKeyboardButton(text=text.BUTTON_PARSER,
+                          callback_data='parser')],
     [InlineKeyboardButton(text=text.BUTTON_HELP, callback_data='help')]
 ]
 
@@ -20,4 +22,14 @@ exit_kb = ReplyKeyboardMarkup(
 iexit_kb = InlineKeyboardMarkup(
     inline_keyboard=[[InlineKeyboardButton(text=text.BUTTON_BACK_TO_MAIN_MENU,
                                            callback_data='main_menu')]]
+)
+nav_parser_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text=text.BUTTON_NAV_PARSER_PRE,
+                              callback_data='nav_parser_pre'),
+         InlineKeyboardButton(text=text.BUTTON_NAV_PARSER_NEXT,
+                              callback_data='nav_parser_next')],
+        [InlineKeyboardButton(text=text.BUTTON_BACK_TO_MAIN_MENU,
+                              callback_data='main_menu')]
+    ]
 )
