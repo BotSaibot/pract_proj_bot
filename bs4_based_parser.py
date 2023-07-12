@@ -167,6 +167,25 @@ def data_to_file(data: dict, f_name: str) -> None:
     logger.debug(f'''data_to_file() -> the {f_name!r} file has been written''')
 
 
+def decoder_str_to_params(str_in: str, sep=' - ') -> dict:
+    out = {}
+    for snum, sline in enumerate(str_in.splitlines()):
+        assert_message = (
+            f'Line {snum} {sline!r} does not have a {sep!r} separator!'
+        )
+        assert sep in sline, assert_message
+        key, val = sline.split(sep=sep)
+        if val.isdigit():
+            val = int(val)
+        elif val in ('True', 'False'):
+            val = bool(val)
+        elif ', ' in val:
+            val = val.split(sep=', ')
+        out[key] = val
+
+    return out
+
+
 def main() -> None:
     '''Главная функция.'''
     logger.info('main() is running...')

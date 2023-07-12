@@ -3,10 +3,12 @@
 BUTTON_BACK_TO_MAIN_MENU = '↩ Выйти в меню'
 BUTTON_DEBUG = '⚙ Отладка'
 BUTTON_HELP = '🔎 Помощь'
-BUTTON_SHOW_ID = '🆔 Мой идентификатор'
-BUTTON_PARSER = '🪄 Парсер'
-BUTTON_NAV_PARSER_PRE = '◀️ Пред'
 BUTTON_NAV_PARSER_NEXT = ' ▶️ След'
+BUTTON_NAV_PARSER_PRE = '◀️ Пред'
+BUTTON_PARSER = '🪄 Парсер'
+BUTTON_PARSER_PARAMS = '⚙ Изменить параметры'
+BUTTON_PARSER_START = '🚀 Запуск'
+BUTTON_SHOW_ID = '🆔 Мой идентификатор'
 # layouts
 TEXT_GREET = 'Привет, {name}, я бот ☺️'
 TEXT_HELP = ('<b>Команды:</b>\n'
@@ -20,10 +22,16 @@ TEXT_MAIN_MENU_TITLE = '☰ Главное меню'
 TEXT_PARSER_PARAMS = ('ХОРОШО. Пришлите мне список параметров. Пожалуйста, '
                       'используйте этот формат:\n\nпараметр1 - значение\n'
                       'параметр2 - другое значение')
+TEXT_PARSER_PARAMS_SUCCESS = ('Успех! Параметры парсера обновлены.')
 TEXT_PARSER_PARAMS_EXAMPLE1 = (
-    'Пример:\n\nenable_snippets - False\nitems_on_page - 2\nonly_with_salary -'
-    ' True\norder_by - publication_time\nored_clusters - True\npart_time - tem'
-    'porary_job_true\nprofessional_role - 96\nsalary - 270000\nsearch_field - '
-    'name, company_name, description\nstatus - non_archived\ntext - python'
+    'Пример 1:\n\nenable_snippets - False\nitems_on_page - 2\nonly_with_salary'
+    ' - True\norder_by - publication_time\nored_clusters - True\npart_time - t'
+    'emporary_job_true\nprofessional_role - 96\nsalary - 270000\nsearch_field '
+    '- name, company_name, description\nstatus - non_archived\ntext - python'
+)
+TEXT_PARSER_PARAMS_EXAMPLE2=(
+    'Пример 2:\n\nexperience - noExperience\nprofessional_role - 96\nschedule '
+    '- remote\nsearch_field - name, company_name, description\nenable_snippets'
+    ' - False\ntext - python'
 )
 TEXT_SHOW_ID = '{name}, Ваш ID: {id}.'

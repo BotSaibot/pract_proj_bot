@@ -60,7 +60,11 @@ async def parser_menu_handler(message):
          'URL = ' + bs4_based_parser.RESOURCE_URL,
          'HEADER = ' + ''.join(str(i) for i
                                in bs4_based_parser.RESOURCE_HEADER.items()),
-         'PARAMS = ' + ''.join(str(i) for i in HANDLERS_PARAMS.items())]
+         'PARAMS = '
+         + ''.join(
+            str(i) for i
+            in HANDLERS_PARAMS[message.from_user.id]['parser_params'].items()
+            )]
     )
 
     if isinstance(message, Message):
@@ -131,7 +135,8 @@ async def parser_handler(message):
 async def parser_params(message):
     '''Sets parser's parametrs'''
     text_out = (text.TEXT_PARSER_PARAMS + '\n\n'
-                + text.TEXT_PARSER_PARAMS_EXAMPLE1)
+                + text.TEXT_PARSER_PARAMS_EXAMPLE1 + '\n\n'
+                + text.TEXT_PARSER_PARAMS_EXAMPLE2)
     
     HANDLERS_PARAMS.setdefault(message.from_user.id, {})['status'] = 'edit_params'
 
@@ -169,7 +174,7 @@ async def start_handler(message: Message):
 
         HANDLERS_PARAMS[message.from_user.id] = {
             'status': None,
-            'parser_params': None
+            'parser_params': {}
         }
 
 
@@ -179,6 +184,9 @@ async def message_handler(message: Message):
     if (HANDLERS_PARAMS.setdefault(message.from_user.id,
                                    {'status': None})['status']
         == 'edit_params'):
-        ...
-
+        new_params = bs4_based_parser.decoder_str_to_params(message.text)
         HANDLERS_PARAMS[message.from_user.id]['status'] = None
+        HANDLERS_PARAMS[message.from_user.id]['parser_params'] = new_params
+        await message.answer(text.TEXT_PARSER_PARAMS_SUCCESS,
+                             reply_markup=kb.parser_params_kb)
+        # await parser_menu_handler(message)

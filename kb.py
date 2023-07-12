@@ -25,9 +25,9 @@ iexit_kb = InlineKeyboardMarkup(
 )
 parser_menu_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text='⚙ Фильтры',
+        [InlineKeyboardButton(text=text.BUTTON_PARSER_PARAMS,
                               callback_data='parser_params')],
-        [InlineKeyboardButton(text='🚀 Запуск',
+        [InlineKeyboardButton(text=text.BUTTON_PARSER_START,
                               callback_data='nav_parser_next')],
         [InlineKeyboardButton(text=text.BUTTON_BACK_TO_MAIN_MENU,
                               callback_data='main_menu')]
@@ -41,5 +41,11 @@ parser_nav_kb = InlineKeyboardMarkup(
                               callback_data='nav_parser_next')],
         [InlineKeyboardButton(text=text.BUTTON_BACK_TO_MAIN_MENU,
                               callback_data='main_menu')]
+    ]
+)
+parser_params_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [InlineKeyboardButton(text=text.BUTTON_PARSER,
+                              callback_data='parser')]
     ]
 )
