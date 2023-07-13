@@ -1,4 +1,4 @@
-'''The main module'''
+'''The main module.'''
 import asyncio
 import logging
 
@@ -22,7 +22,7 @@ async def main():
 
 if __name__ == '__main__':
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='[%(asctime)s:%(msecs)03d] %(levelname)s:%(name)s:%(message)s',
         datefmt='%d.%m.%Y %H:%M:%S'
     )

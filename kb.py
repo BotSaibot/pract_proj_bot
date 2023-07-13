@@ -1,7 +1,7 @@
 '''Keyboards for bot'''
 from aiogram.types import (InlineKeyboardButton, InlineKeyboardMarkup,
-                           KeyboardButton, ReplyKeyboardMarkup,
-                           ReplyKeyboardRemove)
+                           KeyboardButton, ReplyKeyboardMarkup)
+#                           ReplyKeyboardRemove)
 import text
 
 main_menu_buttons = [
@@ -13,6 +13,9 @@ main_menu_buttons = [
                           callback_data='parser')],
     [InlineKeyboardButton(text=text.BUTTON_HELP, callback_data='help')]
 ]
+back_to_main_menu_button = InlineKeyboardButton(
+    text=text.BUTTON_BACK_TO_MAIN_MENU,
+    callback_data='main_menu')
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=main_menu_buttons)
 exit_kb = ReplyKeyboardMarkup(
@@ -20,17 +23,15 @@ exit_kb = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 iexit_kb = InlineKeyboardMarkup(
-    inline_keyboard=[[InlineKeyboardButton(text=text.BUTTON_BACK_TO_MAIN_MENU,
-                                           callback_data='main_menu')]]
+    inline_keyboard=[[back_to_main_menu_button]]
 )
 parser_menu_kb = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text=text.BUTTON_PARSER_PARAMS,
                               callback_data='parser_params')],
         [InlineKeyboardButton(text=text.BUTTON_PARSER_START,
-                              callback_data='nav_parser_next')],
-        [InlineKeyboardButton(text=text.BUTTON_BACK_TO_MAIN_MENU,
-                              callback_data='main_menu')]
+                              callback_data='parser_start')],
+        [back_to_main_menu_button]
     ]
 )
 parser_nav_kb = InlineKeyboardMarkup(
@@ -39,13 +40,15 @@ parser_nav_kb = InlineKeyboardMarkup(
                               callback_data='nav_parser_pre'),
          InlineKeyboardButton(text=text.BUTTON_NAV_PARSER_NEXT,
                               callback_data='nav_parser_next')],
-        [InlineKeyboardButton(text=text.BUTTON_BACK_TO_MAIN_MENU,
-                              callback_data='main_menu')]
+        [InlineKeyboardButton(text=text.BUTTON_BACK_TO_PARSER,
+                              callback_data='parser')],
+        [back_to_main_menu_button]
     ]
 )
 parser_params_kb = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text=text.BUTTON_PARSER,
-                              callback_data='parser')]
+                              callback_data='parser'),
+         back_to_main_menu_button]
     ]
 )

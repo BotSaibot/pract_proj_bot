@@ -1,4 +1,5 @@
 '''Парсер (веб-скрапер) объявлений с HeadHunter.'''
+import aiohttp
 import bs4
 import logging
 import requests
@@ -11,22 +12,37 @@ RESOURCE_HEADER = {'user-agent': 'py-parser/2.3'}
 logger = logging.getLogger(__name__)
 
 
-def get_response(**kwargs) -> bs4.BeautifulSoup:
+async def get_response(**kwargs) -> bs4.BeautifulSoup:
     '''Возвращает проанализированный HTML-документ ответа от ресурса по URL
     адресу.'''
-    logger.info(f'''get_response() is running...''')
-    response = requests.get(**kwargs, timeout=4)
-    response.raise_for_status()
-    check = 'text/html' in response.headers.get('Content-Type')
+    logger.info('get_response() is running...')
+    assert 'url' in kwargs
+    # response = requests.get(**kwargs, timeout=4)
+    timeout = aiohttp.ClientTimeout(total=6)
+    logger.debug(
+        f'create session {kwargs["url"]!r} with parameters '
+        f'{kwargs.get("params")!r}'
+    )
+    async with aiohttp.ClientSession() as session:
+        async with session.get(**kwargs, timeout=timeout) as response:
+
+            response.raise_for_status()
+            check = 'text/html' in response.headers.get('Content-Type')
+            logger.debug(
+                'session response status %s, content-type %r',
+                response.status, response.headers.get('Content-Type')
+            )
+            html = await response.text()
+
     assert check, 'Response has the wrong content-type!'
-    soup = bs4.BeautifulSoup(response.text, 'html.parser')
+    soup = bs4.BeautifulSoup(html, 'html.parser')
     return soup
 
 
 def tree_traversal(doc: bs4.BeautifulSoup, params: dict) -> dict:
     '''Рекурсивный обход дерева полного графа, возвращает словарь.
     Т.е. здесь извлекаем из HTML-документа только полезную информацию.'''
-    logger.info(f'''tree_traversal() is running...''')
+    logger.info('tree_traversal() is running...')
     out = {}
     index = 0
 
@@ -57,7 +73,7 @@ def tree_traversal(doc: bs4.BeautifulSoup, params: dict) -> dict:
             index += 1
             vacancy_response = item.find(
                 'a', {'data-qa': 'vacancy-serp__vacancy_response'}
-                )
+            )
 
             name = item.find('a', {'class': 'serp-item__title'})
             key = bs4.re.search(r'[0-9]+', name['href'])[0]
@@ -66,7 +82,7 @@ def tree_traversal(doc: bs4.BeautifulSoup, params: dict) -> dict:
 
             area = item.find(
                 'div', {'data-qa': 'vacancy-serp__vacancy-address'}
-                ).getText()
+            ).getText()
 
             salary = item.find(
                 'span', {'data-qa': 'vacancy-serp__vacancy-compensation'})
@@ -81,7 +97,7 @@ def tree_traversal(doc: bs4.BeautifulSoup, params: dict) -> dict:
             else:
                 employer = item.find(
                     'div', {'class': 'vacancy-serp-item__meta-info-company'}
-                    ).getText().replace('\xa0', ' ')
+                ).getText().replace('\xa0', ' ')
 
             out[index] = {'key': key, 'name': name, 'area': area,
                           'salary': salary, 'url': url, 'employer': employer}
@@ -89,28 +105,36 @@ def tree_traversal(doc: bs4.BeautifulSoup, params: dict) -> dict:
     return out
 
 
-def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:
-    logger.info(f'''get_general_info() is running...''')
+async def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:
+    '''Gets the host URL, total number of results,
+    and total number of pages.'''
+    logger.info('get_general_info() is running...')
 
-    host_url = requests.urllib3.get_host(
-        doc.find('link', {'rel': 'canonical'})['href']
-    )
-    host_url = host_url[0] + '://' + host_url[1]
-    # ('https', 'voronezh.hh.ru', None)
+    host_url = doc.find('link', {'rel': 'canonical'})['href']
+    host_url = host_url.replace('/search/vacancy', '')
+    # 'https://voronezh.hh.ru/search/vacancy'
 
     total_results = int(
-        doc.find('h1',
-                 {'class': 'bloko-header-section-3'}).getText().split()[0]
+        # doc.find('h1',
+        #          {'class': 'bloko-header-section-3'}).getText().split()[0]
+        ''.join(
+            bs4.re.findall(
+                r'\d+',
+                doc.find('h1', {'class': 'bloko-header-section-3'}).getText())
+        )
     )
-    total_pages = (total_results // params['items_on_page']
-                   + (total_results % params['items_on_page'] > 0))
+    if params.get('items_on_page') is not None:
+        total_pages = (total_results // params['items_on_page']
+                       + (total_results % params['items_on_page'] > 0))
+    else:
+        total_pages = 0
 
     return host_url, total_results, total_pages
 
 
-def simply_traversal(doc: bs4.BeautifulSoup, host: tuple, index=0) -> dict:
+async def simply_traversal(doc: bs4.BeautifulSoup, host: str, index=0) -> dict:
     '''Простой обход документа'''
-    logger.info(f'''simply_traversal() is running...''')
+    logger.info('simply_traversal() is running...')
 
     out = {}
 
@@ -119,7 +143,7 @@ def simply_traversal(doc: bs4.BeautifulSoup, host: tuple, index=0) -> dict:
         index += 1
         vacancy_response = item.find(
             'a', {'data-qa': 'vacancy-serp__vacancy_response'}
-            )
+        )
 
         name = item.find('a', {'class': 'serp-item__title'})
         key = bs4.re.search(r'[0-9]+', name['href'])[0]
@@ -128,14 +152,14 @@ def simply_traversal(doc: bs4.BeautifulSoup, host: tuple, index=0) -> dict:
 
         area = item.find(
             'div', {'data-qa': 'vacancy-serp__vacancy-address'}
-            ).getText()
+        ).getText()
 
         salary = item.find(
             'span', {'data-qa': 'vacancy-serp__vacancy-compensation'})
         if salary is not None:
             salary = salary.getText().replace('\u202f', '')
 
-        url = host + '/vacancy/' + key
+        url = f'{host}/vacancy/{key}'
 
         employer = item.find(
             'a', {'data-qa': 'vacancy-serp__vacancy-employer'})
@@ -144,7 +168,7 @@ def simply_traversal(doc: bs4.BeautifulSoup, host: tuple, index=0) -> dict:
         else:
             employer = item.find(
                 'div', {'class': 'vacancy-serp-item__meta-info-company'}
-                ).getText().replace('\xa0', ' ')
+            ).getText().replace('\xa0', ' ')
 
         out[index] = {'key': key, 'name': name, 'area': area,
                       'salary': salary, 'url': url, 'employer': employer}
@@ -154,7 +178,7 @@ def simply_traversal(doc: bs4.BeautifulSoup, host: tuple, index=0) -> dict:
 
 def data_to_file(data: dict, f_name: str) -> None:
     '''Записывает словарь в файл в кодировке UTF-8.'''
-    logger.info(f'''data_to_file() is running...''')
+    logger.info('data_to_file() is running...')
     with open(f_name, 'w', encoding='utf-8') as fout:
 
         for index, value in data.items():
@@ -164,10 +188,12 @@ def data_to_file(data: dict, f_name: str) -> None:
                    f''''{employer}', {area}\n\t{salary}\n\n''')
 
             fout.write(out)
-    logger.debug(f'''data_to_file() -> the {f_name!r} file has been written''')
+    logger.debug('data_to_file() -> the %r file has been written', f_name)
 
 
-def decoder_str_to_params(str_in: str, sep=' - ') -> dict:
+async def decoder_str_to_params(str_in: str, sep=' - ') -> dict:
+    '''Decodes a string into parameters (dict).'''
+    logger.info('decoder_str_to_params() is running...')
     out = {}
     for snum, sline in enumerate(str_in.splitlines()):
         assert_message = (
@@ -177,8 +203,6 @@ def decoder_str_to_params(str_in: str, sep=' - ') -> dict:
         key, val = sline.split(sep=sep)
         if val.isdigit():
             val = int(val)
-        elif val in ('True', 'False'):
-            val = bool(val)
         elif ', ' in val:
             val = val.split(sep=', ')
         out[key] = val
@@ -208,17 +232,17 @@ def main() -> None:
         url=RESOURCE_URL,
         headers=RESOURCE_HEADER,
         params=params
-        )
+    )
 
     response = tree_traversal(response, params)
     data_to_file(response, './output.txt')
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-        level=logging.INFO,
-        format='[%(asctime)s:%(msecs)03d] %(levelname)s:%(name)s:%(message)s',
-        datefmt='%d.%m.%Y %H:%M:%S'
-    )
+    # logging.basicConfig(
+    #     level=logging.INFO,
+    #     format='[%(asctime)s:%(msecs)03d] %(levelname)s:%(name)s:%(message)s',
+    #     datefmt='%d.%m.%Y %H:%M:%S'
+    # )
     logger.info('Start bs4_based_parser.py')
     main()
