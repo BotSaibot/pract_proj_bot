@@ -1,8 +1,8 @@
 '''Handlers for bot'''
+import logging
 from aiogram import F, Router
 from aiogram.types import Message  # CallbackQuery
 from aiogram.filters import Command
-import logging
 
 import kb
 import text
@@ -15,12 +15,12 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-async def check_params(id):
+async def check_params(user_id):
     '''Checks handler's parameters by id.'''
     logger.info('check_params() is running...')
-    if id not in HANDLERS_PARAMS:
+    if user_id not in HANDLERS_PARAMS:
 
-        HANDLERS_PARAMS[id] = {'status': None, 'parser_params': {}}
+        HANDLERS_PARAMS[user_id] = {'status': None, 'parser_params': {}}
 
 
 @router.callback_query(F.data == 'debug')
@@ -88,57 +88,90 @@ async def parser_menu_handler(message):
         )
 
 
-# @router.callback_query(F.data == 'parser_start', 'nav_parser_next')
-@router.callback_query(F.data.in_(('parser_start', 'nav_parser_next')))
+@router.callback_query(F.data.in_(('parser_start', 'nav_parser_next',
+                                   'nav_parser_pre')))
 @router.message(Command('parser_start'))
 async def parser_handler(message):
     '''Shows the parser message'''
     await check_params(message.from_user.id)
+    parser_params = (
+        HANDLERS_PARAMS[message.from_user.id]['parser_params'])
 
-    response = await bs4_based_parser.get_response(
-        url=bs4_based_parser.RESOURCE_URL,
-        headers=bs4_based_parser.RESOURCE_HEADER,
-        params=HANDLERS_PARAMS[message.from_user.id]['parser_params']
-    )
+    async def continue_res():
+        response = await bs4_based_parser.get_response(
+            url=bs4_based_parser.RESOURCE_URL,
+            headers=bs4_based_parser.RESOURCE_HEADER,
+            params=parser_params
+        )
 
-    # response = parser.tree_traversal(response, params)
-    host, results, total_pages = await bs4_based_parser.get_general_info(
-        response, HANDLERS_PARAMS[message.from_user.id]['parser_params']
-    )
+        host, results, total_pages = await bs4_based_parser.get_general_info(
+            response, parser_params
+        )
+        return host, results, total_pages, response
 
     if isinstance(message, Message):
 
-        text_out = f'{host} -> Finded {results}, total pages {total_pages}'
-        await message.answer(text_out, disable_web_page_preview=True)
+        host, results, total_pages, response = await continue_res()
+        await message.answer((f'{host} -> Finded {results}, '
+                              f'total pages {total_pages}'),
+                             disable_web_page_preview=True)
 
     else:
 
+        if message.data == 'nav_parser_next':
+
+            parser_params.update(
+                [('page', parser_params.setdefault('page', 0) + 1),
+                 ('hhtmFrom', 'vacancy_search_list')])
+
+        elif (message.data == 'nav_parser_pre'
+              and parser_params.get('page') is not None
+              and parser_params.get('page') > 0):
+
+            parser_params.update(
+                [('page', parser_params.setdefault('page', 0) - 1),
+                 ('hhtmFrom', 'vacancy_search_list')])
+
+        host, results, total_pages, response = await continue_res()
         response = await bs4_based_parser.simply_traversal(response, host)
 
         text_out = []
         for index, value in response.items():
+            index = (parser_params.setdefault('page', 0)
+                     * parser_params.setdefault('items_on_page', 20) + index)
             key, name, area, salary, url, employer = value.values()
 
-            out = (f'''[{index}] {key} {url}\n\t{name}\n\t'''
-                   f''''{employer}', {area}\n\t{salary}\n''')
+            text_out.append(f'''[{index}] {key} {url}\n\t{name}\n\t'''
+                            f''''{employer}', {area}\n\t{salary}\n''')
 
-            text_out.append(out)
-
-        bottom = ['―' * 31,
-                  f'{host} -> Finded {results}, total pages {total_pages}',
-                  f'message data {message.data!r}']
-        text_out.extend(bottom)
+        text_out.extend(
+            ['―' * 31,
+             f'{host} -> Finded {results}, total pages {total_pages}',
+             f'message data {message.data!r}\n'
+             f'page {parser_params.get("page") + 1}'])
 
         text_out = '\n'.join(text_out)
 
+        if parser_params.get('page') == 0:
+
+            reply_markup = kb.parser_start_kb
+
+        elif parser_params.get('page') + 1 == total_pages:
+
+            reply_markup = kb.parser_end_kb
+
+        else:
+
+            reply_markup = kb.parser_nav_kb
+
         await message.message.edit_text(
             text_out, disable_web_page_preview=True,
-            reply_markup=kb.parser_nav_kb
+            reply_markup=reply_markup
         )
 
 
-@router.callback_query(F.data == 'parser_params')
-async def parser_params(message):
+@router.callback_query(F.data == 'parser_set_params')
+async def parser_set_params(message):
     '''Sets parser's parametrs'''
     await check_params(message.from_user.id)
 
@@ -189,9 +222,7 @@ async def message_handler(message: Message):
     '''Handles user's messages'''
     await check_params(message.from_user.id)
 
-    if (HANDLERS_PARAMS.setdefault(message.from_user.id,
-                                   {'status': None})['status']
-            == 'edit_params'):
+    if HANDLERS_PARAMS[message.from_user.id]['status'] == 'edit_params':
         new_params = await bs4_based_parser.decoder_str_to_params(message.text)
         HANDLERS_PARAMS[message.from_user.id]['status'] = None
         HANDLERS_PARAMS[message.from_user.id]['parser_params'] = new_params

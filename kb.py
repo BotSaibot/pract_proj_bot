@@ -16,6 +16,15 @@ main_menu_buttons = [
 back_to_main_menu_button = InlineKeyboardButton(
     text=text.BUTTON_BACK_TO_MAIN_MENU,
     callback_data='main_menu')
+back_to_parser_button = InlineKeyboardButton(
+    text=text.BUTTON_BACK_TO_PARSER,
+    callback_data='parser')
+nav_parser_pre_button = InlineKeyboardButton(
+    text=text.BUTTON_NAV_PARSER_PRE,
+    callback_data='nav_parser_pre')
+nav_parser_next_button = InlineKeyboardButton(
+    text=text.BUTTON_NAV_PARSER_NEXT,
+    callback_data='nav_parser_next')
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=main_menu_buttons)
 exit_kb = ReplyKeyboardMarkup(
@@ -28,7 +37,7 @@ iexit_kb = InlineKeyboardMarkup(
 parser_menu_kb = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text=text.BUTTON_PARSER_PARAMS,
-                              callback_data='parser_params')],
+                              callback_data='parser_set_params')],
         [InlineKeyboardButton(text=text.BUTTON_PARSER_START,
                               callback_data='parser_start')],
         [back_to_main_menu_button]
@@ -36,12 +45,22 @@ parser_menu_kb = InlineKeyboardMarkup(
 )
 parser_nav_kb = InlineKeyboardMarkup(
     inline_keyboard=[
-        [InlineKeyboardButton(text=text.BUTTON_NAV_PARSER_PRE,
-                              callback_data='nav_parser_pre'),
-         InlineKeyboardButton(text=text.BUTTON_NAV_PARSER_NEXT,
-                              callback_data='nav_parser_next')],
-        [InlineKeyboardButton(text=text.BUTTON_BACK_TO_PARSER,
-                              callback_data='parser')],
+        [nav_parser_pre_button, nav_parser_next_button],
+        [back_to_parser_button],
+        [back_to_main_menu_button]
+    ]
+)
+parser_start_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [nav_parser_next_button],
+        [back_to_parser_button],
+        [back_to_main_menu_button]
+    ]
+)
+parser_end_kb = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [nav_parser_pre_button],
+        [back_to_parser_button],
         [back_to_main_menu_button]
     ]
 )
