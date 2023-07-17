@@ -89,7 +89,8 @@ async def parser_menu_handler(message):
 
 
 @router.callback_query(F.data.in_(('parser_start', 'nav_parser_next',
-                                   'nav_parser_pre')))
+                                   'nav_parser_pre', 'nav_parser_to_end',
+                                   'nav_parser_to_start')))
 @router.message(Command('parser_start'))
 async def parser_handler(message):
     '''Shows the parser message'''
@@ -124,6 +125,17 @@ async def parser_handler(message):
                 [('page', parser_params.setdefault('page', 0) + 1),
                  ('hhtmFrom', 'vacancy_search_list')])
 
+        elif message.data == 'nav_parser_to_end':
+
+            parser_params.update(
+                [('page', parser_params.get('total_pages') - 1),
+                 ('hhtmFrom', 'vacancy_search_list')])
+
+        elif message.data == 'nav_parser_to_start':
+
+            parser_params.update(
+                [('page', 0), ('hhtmFrom', 'vacancy_search_list')])
+
         elif (message.data == 'nav_parser_pre'
               and parser_params.get('page') is not None
               and parser_params.get('page') > 0):
@@ -145,7 +157,7 @@ async def parser_handler(message):
                             f''''{employer}', {area}\n\t{salary}\n''')
 
         text_out.extend(
-            ['―' * 31,
+            ['―' * 22,
              f'{host} -> Finded {results}, total pages {total_pages}',
              f'message data {message.data!r}\n'
              f'page {parser_params.get("page") + 1}'])
@@ -154,15 +166,22 @@ async def parser_handler(message):
 
         if parser_params.get('page') == 0:
 
-            reply_markup = kb.parser_start_kb
+            # reply_markup = kb.parser_start_kb
+            reply_markup = await kb.get_nav_parser_kb(
+                'start', parser_params.get('page') + 1, total_pages)
+            parser_params.update([('total_pages', total_pages)])
 
         elif parser_params.get('page') + 1 == total_pages:
 
-            reply_markup = kb.parser_end_kb
+            # reply_markup = kb.parser_end_kb
+            reply_markup = await kb.get_nav_parser_kb(
+                'end', parser_params.get('page') + 1, total_pages)
 
         else:
 
-            reply_markup = kb.parser_nav_kb
+            # reply_markup = kb.parser_nav_kb
+            reply_markup = await kb.get_nav_parser_kb(
+                'normal', parser_params.get('page') + 1, total_pages)
 
         await message.message.edit_text(
             text_out, disable_web_page_preview=True,
