@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 async def check_params(user_id):
     '''Checks handler's parameters by id.'''
     logger.info('check_params() is running...')
-    if user_id not in HANDLERS_PARAMS:
 
+    if user_id not in HANDLERS_PARAMS:
         HANDLERS_PARAMS[user_id] = {'status': None, 'parser_params': {}}
 
 
@@ -45,6 +45,7 @@ async def debug_message_handler(message):
 async def help_handler(message):
     '''Shows the help'''
     text_out = text.TEXT_HELP
+
     if isinstance(message, Message):
         await message.answer(text_out)
     else:
@@ -56,6 +57,7 @@ async def help_handler(message):
 async def main_menu_handler(message):
     '''Calls the main menu'''
     text_out = text.TEXT_MAIN_MENU_TITLE
+
     if isinstance(message, Message):
         await message.answer(text_out, reply_markup=kb.main_menu)
     else:
@@ -88,98 +90,76 @@ async def parser_menu_handler(message):
         )
 
 
-@router.callback_query(F.data.in_(('parser_start', 'nav_parser_next',
-                                   'nav_parser_pre', 'nav_parser_to_end',
-                                   'nav_parser_to_start')))
+@router.callback_query(F.data.in_(
+    ('parser_start', 'nav_parser_next', 'nav_parser_pre', 'nav_parser_to_end',
+     'nav_parser_to_start')))
 @router.message(Command('parser_start'))
 async def parser_handler(message):
     '''Shows the parser message'''
-    await check_params(message.from_user.id)
-    parser_params = (
-        HANDLERS_PARAMS[message.from_user.id]['parser_params'])
-
     async def continue_res():
         response = await bs4_based_parser.get_response(
             url=bs4_based_parser.RESOURCE_URL,
             headers=bs4_based_parser.RESOURCE_HEADER,
             params=parser_params
         )
-
         host, results, total_pages = await bs4_based_parser.get_general_info(
             response, parser_params
         )
         return host, results, total_pages, response
 
-    if isinstance(message, Message):
+    await check_params(message.from_user.id)
+    parser_params = (
+        HANDLERS_PARAMS[message.from_user.id]['parser_params'])
 
+    if isinstance(message, Message):
         host, results, total_pages, response = await continue_res()
         await message.answer((f'{host} -> Finded {results}, '
                               f'total pages {total_pages}'),
                              disable_web_page_preview=True)
-
     else:
-
         if message.data == 'nav_parser_next':
-
             parser_params.update(
                 [('page', parser_params.setdefault('page', 0) + 1),
                  ('hhtmFrom', 'vacancy_search_list')])
-
         elif message.data == 'nav_parser_to_end':
-
             parser_params.update(
                 [('page', parser_params.get('total_pages') - 1),
                  ('hhtmFrom', 'vacancy_search_list')])
-
         elif message.data == 'nav_parser_to_start':
-
             parser_params.update(
                 [('page', 0), ('hhtmFrom', 'vacancy_search_list')])
-
         elif (message.data == 'nav_parser_pre'
               and parser_params.get('page') is not None
               and parser_params.get('page') > 0):
-
             parser_params.update(
                 [('page', parser_params.setdefault('page', 0) - 1),
                  ('hhtmFrom', 'vacancy_search_list')])
 
         host, results, total_pages, response = await continue_res()
         response = await bs4_based_parser.simply_traversal(response, host)
-
         text_out = []
+
         for index, value in response.items():
             index = (parser_params.setdefault('page', 0)
                      * parser_params.setdefault('items_on_page', 20) + index)
             key, name, area, salary, url, employer = value.values()
-
             text_out.append(f'''[{index}] {key} {url}\n\t{name}\n\t'''
                             f''''{employer}', {area}\n\t{salary}\n''')
 
         text_out.extend(
             ['―' * 22,
-             f'{host} -> Finded {results}, total pages {total_pages}',
-             f'message data {message.data!r}\n'
-             f'page {parser_params.get("page") + 1}'])
-
+             f'{host} -> Finded {results}, '
+             f'''results per page {parser_params['items_on_page']}'''])
         text_out = '\n'.join(text_out)
 
         if parser_params.get('page') == 0:
-
-            # reply_markup = kb.parser_start_kb
             reply_markup = await kb.get_nav_parser_kb(
                 'start', parser_params.get('page') + 1, total_pages)
             parser_params.update([('total_pages', total_pages)])
-
         elif parser_params.get('page') + 1 == total_pages:
-
-            # reply_markup = kb.parser_end_kb
             reply_markup = await kb.get_nav_parser_kb(
                 'end', parser_params.get('page') + 1, total_pages)
-
         else:
-
-            # reply_markup = kb.parser_nav_kb
             reply_markup = await kb.get_nav_parser_kb(
                 'normal', parser_params.get('page') + 1, total_pages)
 
@@ -193,16 +173,28 @@ async def parser_handler(message):
 async def parser_set_params(message):
     '''Sets parser's parametrs'''
     await check_params(message.from_user.id)
-
     text_out = (text.TEXT_PARSER_PARAMS + '\n\n'
                 + text.TEXT_PARSER_PARAMS_EXAMPLE1 + '\n\n'
                 + text.TEXT_PARSER_PARAMS_EXAMPLE2)
-
     HANDLERS_PARAMS.setdefault(
         message.from_user.id, {}
     )['status'] = 'edit_params'
-
     await message.message.answer(text_out)
+
+
+@router.callback_query(F.data.startswith('nav_transition_failure'))
+async def parser_nav_transition_failure(message):
+    '''Informs about the failure and it's reason'''
+    failure_reason = message.data.removeprefix('nav_transition_failure:')
+
+    if failure_reason in ('pre', 'start'):
+        text_out = text.BUTTON_NAV_FAILURE_REASON_PRE_START
+    elif failure_reason in ('next', 'end'):
+        text_out = text.BUTTON_NAV_FAILURE_REASON_NEXT_END
+    else:
+        text_out = text.BUTTON_NAV_FAILURE_REASON_OTHER
+
+    await message.answer(text_out)
 
 
 @router.callback_query(F.data == 'show_id')
@@ -211,6 +203,7 @@ async def show_id_handler(message):
     '''Shows a user id'''
     text_out = text.TEXT_SHOW_ID.format(id=message.from_user.id,
                                         name=message.from_user.full_name)
+
     if isinstance(message, Message):
         await message.answer(text_out)
     else:
@@ -232,8 +225,13 @@ async def start_handler(message: Message):
         text.TEXT_GREET.format(name=message.from_user.full_name),
         reply_markup=kb.main_menu
     )
-
     await check_params(message.from_user.id)
+
+
+@router.message(Command('stop'))
+async def stop_handler(message):
+    await message.answer('Shotdowning')
+    exit(0)
 
 
 @router.message()
@@ -247,3 +245,11 @@ async def message_handler(message: Message):
         HANDLERS_PARAMS[message.from_user.id]['parser_params'] = new_params
         await message.answer(text.TEXT_PARSER_PARAMS_SUCCESS,
                              reply_markup=kb.parser_params_kb)
+
+
+def main():
+    print('asa')
+
+
+if __name__ == '__main__':
+    main()

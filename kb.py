@@ -19,18 +19,6 @@ back_to_main_menu_button = InlineKeyboardButton(
 back_to_parser_button = InlineKeyboardButton(
     text=text.BUTTON_BACK_TO_PARSER,
     callback_data='parser')
-nav_parser_next_button = InlineKeyboardButton(
-    text=text.BUTTON_NAV_PARSER_NEXT,
-    callback_data='nav_parser_next')
-nav_parser_pre_button = InlineKeyboardButton(
-    text=text.BUTTON_NAV_PARSER_PRE,
-    callback_data='nav_parser_pre')
-nav_parser_to_end_button = InlineKeyboardButton(
-    text=text.BUTTON_NAV_PARSER_GO_TO_END,
-    callback_data='nav_parser_to_end')
-nav_parser_to_start_button = InlineKeyboardButton(
-    text=text.BUTTON_NAV_PARSER_GO_TO_START,
-    callback_data='nav_parser_to_start')
 
 main_menu = InlineKeyboardMarkup(inline_keyboard=main_menu_buttons)
 exit_kb = ReplyKeyboardMarkup(
@@ -59,43 +47,56 @@ parser_params_kb = InlineKeyboardMarkup(
 
 
 async def get_nav_parser_kb(type: str, page, total_page: int):
-
-    nav_parser_to_page_button = InlineKeyboardButton(
-        text=text.BUTTON_NAV_GO_TO_PAGE.format(page=page, pages=total_page),
-        callback_data='nav')
+    '''Gives a navigational keyboard of the parser.
+    type: str - type of a navigational keyboard,
+    page: int - сurrent page number,
+    total_page: int - total number of pages.'''
 
     if type == 'normal':
 
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [nav_parser_to_start_button, nav_parser_pre_button,
-                 nav_parser_to_page_button, nav_parser_next_button,
-                 nav_parser_to_end_button],
-                [back_to_parser_button],
-                [back_to_main_menu_button]
-            ]
-        )
+        callback_data_nav_parser_next = 'nav_parser_next'
+        callback_data_nav_parser_pre = 'nav_parser_pre'
+        callback_data_nav_parser_to_end = 'nav_parser_to_end'
+        callback_data_nav_parser_to_start = 'nav_parser_to_start'
 
     elif type == 'start':
 
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [nav_parser_to_page_button, nav_parser_next_button,
-                 nav_parser_to_end_button],
-                [back_to_parser_button],
-                [back_to_main_menu_button]
-            ]
-        )
+        callback_data_nav_parser_next = 'nav_parser_next'
+        callback_data_nav_parser_pre = 'nav_transition_failure:pre'
+        callback_data_nav_parser_to_end = 'nav_parser_to_end'
+        callback_data_nav_parser_to_start = 'nav_transition_failure:start'
 
     elif type == 'end':
 
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [nav_parser_to_start_button, nav_parser_pre_button,
-                 nav_parser_to_page_button],
-                [back_to_parser_button],
-                [back_to_main_menu_button]
-            ]
-        )
+        callback_data_nav_parser_next = 'nav_transition_failure:next'
+        callback_data_nav_parser_pre = 'nav_parser_pre'
+        callback_data_nav_parser_to_end = 'nav_transition_failure:end'
+        callback_data_nav_parser_to_start = 'nav_parser_to_start'
+
+    nav_parser_next_button = InlineKeyboardButton(
+        text=text.BUTTON_NAV_PARSER_NEXT,
+        callback_data=callback_data_nav_parser_next)
+    nav_parser_pre_button = InlineKeyboardButton(
+        text=text.BUTTON_NAV_PARSER_PRE,
+        callback_data=callback_data_nav_parser_pre)
+    nav_parser_to_end_button = InlineKeyboardButton(
+        text=text.BUTTON_NAV_PARSER_GO_TO_END,
+        callback_data=callback_data_nav_parser_to_end)
+    nav_parser_to_page_button = InlineKeyboardButton(
+        text=text.BUTTON_NAV_GO_TO_PAGE.format(page=page, pages=total_page),
+        callback_data='nav')
+    nav_parser_to_start_button = InlineKeyboardButton(
+        text=text.BUTTON_NAV_PARSER_GO_TO_START,
+        callback_data=callback_data_nav_parser_to_start)
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [nav_parser_to_start_button, nav_parser_pre_button,
+             nav_parser_to_page_button, nav_parser_next_button,
+             nav_parser_to_end_button],
+            [back_to_parser_button],
+            [back_to_main_menu_button]
+        ]
+    )
 
     return keyboard
