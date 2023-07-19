@@ -1,4 +1,5 @@
 '''Handlers for bot'''
+import sys
 import logging
 from aiogram import F, Router
 from aiogram.types import Message  # CallbackQuery
@@ -7,6 +8,7 @@ from aiogram.filters import Command
 import kb
 import text
 import bs4_based_parser
+import params
 
 HANDLERS_PARAMS = {}
 
@@ -15,27 +17,27 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-async def check_params(user_id):
+async def check_params(user_id: str):
     '''Checks handler's parameters by id.'''
     logger.info('check_params() is running...')
-
+    HANDLERS_PARAMS.update(params.load_params())
     if user_id not in HANDLERS_PARAMS:
         HANDLERS_PARAMS[user_id] = {'status': None, 'parser_params': {}}
+        params.unload_params(HANDLERS_PARAMS)
 
 
 @router.callback_query(F.data == 'debug')
 @router.message(Command('debug'))
 async def debug_message_handler(message):
     '''Shows the debug message'''
-    text_out = '⚙ This is debug message! ⚙\n```\n'
-
+    text_out = '⚙ This is debug message! ⚙\n<pre>\n'
     if isinstance(message, Message):
         await message.answer(
-            text_out + message.json(indent=4, exclude_none=True) + '\n```'
+            text_out + message.json(indent=4, exclude_none=True) + '\n</pre>'
         )
     else:
         await message.message.edit_text(
-            text_out + message.json(indent=4, exclude_none=True) + '\n```',
+            text_out + message.json(indent=4, exclude_none=True) + '\n</pre>',
             reply_markup=kb.iexit_kb
         )
 
@@ -68,17 +70,15 @@ async def main_menu_handler(message):
 @router.message(Command('parser'))
 async def parser_menu_handler(message):
     '''Shows the parser menu'''
-    await check_params(message.from_user.id)
+    message_user_id = str(message.from_user.id)
+    await check_params(message_user_id)
     text_out = '\n'.join(
         [bs4_based_parser.__doc__,
-         'URL = ' + bs4_based_parser.RESOURCE_URL,
+         '<pre>URL = ' + bs4_based_parser.RESOURCE_URL,
          'HEADER = ' + ''.join(str(i) for i
                                in bs4_based_parser.RESOURCE_HEADER.items()),
          'PARAMS = '
-         + ''.join(
-             str(i) for i
-             in HANDLERS_PARAMS[message.from_user.id]['parser_params'].items()
-         )]
+         + str(HANDLERS_PARAMS[message_user_id]['parser_params']) + '</pre>']
     )
 
     if isinstance(message, Message):
@@ -107,9 +107,9 @@ async def parser_handler(message):
         )
         return host, results, total_pages, response
 
-    await check_params(message.from_user.id)
+    await check_params(str(message.from_user.id))
     parser_params = (
-        HANDLERS_PARAMS[message.from_user.id]['parser_params'])
+        HANDLERS_PARAMS[str(message.from_user.id)]['parser_params'])
 
     if isinstance(message, Message):
         host, results, total_pages, response = await continue_res()
@@ -142,9 +142,10 @@ async def parser_handler(message):
         for index, value in response.items():
             index = (parser_params.setdefault('page', 0)
                      * parser_params.setdefault('items_on_page', 20) + index)
-            key, name, area, salary, url, employer = value.values()
-            text_out.append(f'''[{index}] {key} {url}\n\t{name}\n\t'''
-                            f''''{employer}', {area}\n\t{salary}\n''')
+            values = value.values()
+            text_out.append(
+                f'''[{index}] {values[0]} {values[4]}\n\t{values[1]}\n\t'''
+                f''''{values[5]}', {values[2]}\n\t{values[3]}\n''')
 
         text_out.extend(
             ['―' * 22,
@@ -163,6 +164,8 @@ async def parser_handler(message):
             reply_markup = await kb.get_nav_parser_kb(
                 'normal', parser_params.get('page') + 1, total_pages)
 
+        params.unload_params(HANDLERS_PARAMS)
+
         await message.message.edit_text(
             text_out, disable_web_page_preview=True,
             reply_markup=reply_markup
@@ -172,13 +175,14 @@ async def parser_handler(message):
 @router.callback_query(F.data == 'parser_set_params')
 async def parser_set_params(message):
     '''Sets parser's parametrs'''
-    await check_params(message.from_user.id)
+    await check_params(str(message.from_user.id))
     text_out = (text.TEXT_PARSER_PARAMS + '\n\n'
                 + text.TEXT_PARSER_PARAMS_EXAMPLE1 + '\n\n'
                 + text.TEXT_PARSER_PARAMS_EXAMPLE2)
     HANDLERS_PARAMS.setdefault(
-        message.from_user.id, {}
+        str(message.from_user.id), {}
     )['status'] = 'edit_params'
+    params.unload_params(HANDLERS_PARAMS)
     await message.message.answer(text_out)
 
 
@@ -213,8 +217,9 @@ async def show_id_handler(message):
 @router.message(Command('cancel'))
 async def cancel_handler(message: Message):
     '''Cancels current command'''
-    await check_params(message.from_user.id)
-    HANDLERS_PARAMS.setdefault(message.from_user.id, {})['status'] = None
+    await check_params(str(message.from_user.id))
+    HANDLERS_PARAMS.setdefault(str(message.from_user.id), {})['status'] = None
+    params.unload_params(HANDLERS_PARAMS)
     await message.answer('The command `/cancel` is done')
 
 
@@ -225,31 +230,26 @@ async def start_handler(message: Message):
         text.TEXT_GREET.format(name=message.from_user.full_name),
         reply_markup=kb.main_menu
     )
-    await check_params(message.from_user.id)
+    await check_params(str(message.from_user.id))
 
 
 @router.message(Command('stop'))
 async def stop_handler(message):
+    '''Stops the bot'''
     await message.answer('Shotdowning')
-    exit(0)
+    sys.exit(0)
 
 
 @router.message()
 async def message_handler(message: Message):
     '''Handles user's messages'''
-    await check_params(message.from_user.id)
+    message_user_id = str(message.from_user.id)
+    await check_params(message_user_id)
 
-    if HANDLERS_PARAMS[message.from_user.id]['status'] == 'edit_params':
+    if HANDLERS_PARAMS[message_user_id]['status'] == 'edit_params':
         new_params = await bs4_based_parser.decoder_str_to_params(message.text)
-        HANDLERS_PARAMS[message.from_user.id]['status'] = None
-        HANDLERS_PARAMS[message.from_user.id]['parser_params'] = new_params
+        HANDLERS_PARAMS[message_user_id]['status'] = None
+        HANDLERS_PARAMS[message_user_id]['parser_params'] = new_params
+        params.unload_params(HANDLERS_PARAMS)
         await message.answer(text.TEXT_PARSER_PARAMS_SUCCESS,
                              reply_markup=kb.parser_params_kb)
-
-
-def main():
-    print('asa')
-
-
-if __name__ == '__main__':
-    main()

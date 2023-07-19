@@ -46,27 +46,27 @@ parser_params_kb = InlineKeyboardMarkup(
 )
 
 
-async def get_nav_parser_kb(type: str, page, total_page: int):
+async def get_nav_parser_kb(option: str, page, total_page: int):
     '''Gives a navigational keyboard of the parser.
-    type: str - type of a navigational keyboard,
+    option: str - type of a navigational keyboard,
     page: int - сurrent page number,
     total_page: int - total number of pages.'''
 
-    if type == 'normal':
+    if option == 'normal':
 
         callback_data_nav_parser_next = 'nav_parser_next'
         callback_data_nav_parser_pre = 'nav_parser_pre'
         callback_data_nav_parser_to_end = 'nav_parser_to_end'
         callback_data_nav_parser_to_start = 'nav_parser_to_start'
 
-    elif type == 'start':
+    elif option == 'start':
 
         callback_data_nav_parser_next = 'nav_parser_next'
         callback_data_nav_parser_pre = 'nav_transition_failure:pre'
         callback_data_nav_parser_to_end = 'nav_parser_to_end'
         callback_data_nav_parser_to_start = 'nav_transition_failure:start'
 
-    elif type == 'end':
+    elif option == 'end':
 
         callback_data_nav_parser_next = 'nav_transition_failure:next'
         callback_data_nav_parser_pre = 'nav_parser_pre'
