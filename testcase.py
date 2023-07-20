@@ -1,6 +1,7 @@
 '''Unittest case'''
 import unittest
 import bs4_based_parser
+import params
 
 
 # Test cases to test Calulator methods
@@ -125,6 +126,41 @@ class TestGetResponse(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             exc.exception.args[0],
             'Response has the wrong content-type!')
+
+
+class TestParams(unittest.TestCase):
+    '''Tests loading and unloading parameters'''
+
+    def setUp(self):
+        self.load = params.load_params
+        self.unload = params.unload_params
+        self.test_params = params.test
+        self.logger = params.__name__
+        self.old_data = self.load()
+        self.unload({})
+
+    def test_unload_params(self):
+        '''Tests unloading parameters'''
+        with self.assertLogs() as rec:
+            self.unload(self.test_params)
+        self.assertEqual(
+            rec.output, [f'INFO:{self.logger}:unload_params() is running...'])
+
+    def test_load_params(self):
+        '''Tests loading parameters'''
+        with self.assertLogs() as rec:
+            self.load()
+        self.assertEqual(
+            rec.output, [f'INFO:{self.logger}:load_params() is running...'])
+
+    def test_data_integrity(self):
+        '''Tests data integrity'''
+        data = {123: 'One hundred twenty three'}
+        self.unload(data)
+        self.assertEqual(self.load(), data)
+
+    def tearDown(self):
+        self.unload(self.old_data)
 
 
 # Executing the tests in the above test case class

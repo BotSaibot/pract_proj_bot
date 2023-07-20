@@ -7,7 +7,8 @@ from aiogram.enums.parse_mode import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 
 import config
-from handlers import router
+from handlers import HANDLERS_PARAMS, router
+from params import load_params
 
 
 async def main():
@@ -16,6 +17,7 @@ async def main():
     disp = Dispatcher(storage=MemoryStorage())
     disp.include_router(router)
     await bot.delete_webhook(drop_pending_updates=True)
+    HANDLERS_PARAMS.update(load_params())
     await disp.start_polling(bot,
                              allowed_updates=disp.resolve_used_update_types())
 
@@ -23,7 +25,10 @@ async def main():
 if __name__ == '__main__':
     logging.basicConfig(
         level=logging.INFO,
-        format='[%(asctime)s:%(msecs)03d] %(levelname)s:%(name)s:%(message)s',
+        format=('[%(asctime)s:%(msecs)03d] [%(filename)s:%(lineno)d] '
+                '%(levelname)s:%(name)s:%(message)s'),
         datefmt='%d.%m.%Y %H:%M:%S'
     )
+    # format='%(filename)s:%(lineno)d #%(levelname)-8s '
+    #    '[%(asctime)s] - %(name)s - %(message)s')
     asyncio.get_event_loop().run_until_complete(main())

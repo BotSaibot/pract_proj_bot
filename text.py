@@ -29,7 +29,6 @@ TEXT_MAIN_MENU_TITLE = '☰ Главное меню'
 TEXT_PARSER_PARAMS = ('ХОРОШО. Пришлите мне список параметров. Пожалуйста, '
                       'используйте этот формат:\n\nпараметр1 - значение\n'
                       'параметр2 - другое значение')
-TEXT_PARSER_PARAMS_SUCCESS = 'Успех! Параметры парсера обновлены.'
 TEXT_PARSER_PARAMS_EXAMPLE1 = (
     'Пример 1:\n\nenable_snippets - False\nitems_on_page - 2\nonly_with_salary'
     ' - True\norder_by - publication_time\nored_clusters - True\npart_time - t'
@@ -42,4 +41,5 @@ TEXT_PARSER_PARAMS_EXAMPLE2 = (
     'l_role - 96\nschedule - remote\nsearch_field - name, company_name, descri'
     'ption\nstatus - non_archived\ntext - python'
 )
+TEXT_PARSER_PARAMS_SUCCESS = 'Успех! Параметры парсера обновлены.'
 TEXT_SHOW_ID = '{name}, Ваш ID: {id}.'

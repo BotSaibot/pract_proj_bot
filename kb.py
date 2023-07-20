@@ -84,7 +84,7 @@ async def get_nav_parser_kb(option: str, page, total_page: int):
         callback_data=callback_data_nav_parser_to_end)
     nav_parser_to_page_button = InlineKeyboardButton(
         text=text.BUTTON_NAV_GO_TO_PAGE.format(page=page, pages=total_page),
-        callback_data='nav')
+        callback_data='nav_go_to_page')
     nav_parser_to_start_button = InlineKeyboardButton(
         text=text.BUTTON_NAV_PARSER_GO_TO_START,
         callback_data=callback_data_nav_parser_to_start)

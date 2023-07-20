@@ -5,7 +5,7 @@ import bs4
 
 
 RESOURCE_URL = 'https://hh.ru/search/vacancy'
-RESOURCE_HEADER = {'user-agent': 'py-parser/2.3'}
+RESOURCE_HEADER = {'user-agent': 'py-parser/2.5'}
 
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,12 @@ async def decoder_str_to_params(str_in: str, sep=' - ') -> dict:
         out[key] = val
 
     return out
+
+
+async def decoder_str_to_page(str_in: str) -> int | None:
+    '''Decodes a string into page (int).'''
+    if str_in.isdigit():
+        return int(str_in) - 1
 
 
 async def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:

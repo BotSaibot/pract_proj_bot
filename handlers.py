@@ -17,7 +17,7 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-async def check_params(user_id: str):
+async def check_params(user_id):
     '''Checks handler's parameters by id.'''
     logger.info('check_params() is running...')
     HANDLERS_PARAMS.update(params.load_params())
@@ -66,19 +66,31 @@ async def main_menu_handler(message):
         await message.message.edit_text(text_out, reply_markup=kb.main_menu)
 
 
+@router.callback_query(F.data == 'nav_go_to_page')
+async def parser_go_to_page_handler(message):
+    '''A new handler'''
+    # await check_params(message.from_user.id)
+    HANDLERS_PARAMS[message.from_user.id]['status'] = 'go_to_page'
+    # params.unload_params(HANDLERS_PARAMS)
+    text_out = 'Пришлите мне не отрицательный номер страницы. Используйте только цифры.'
+    await message.answer(text_out)
+    ans = await message.message.answer(text_out)
+    # await ans.delete()
+
+
 @router.callback_query(F.data == 'parser')
 @router.message(Command('parser'))
 async def parser_menu_handler(message):
     '''Shows the parser menu'''
-    message_user_id = str(message.from_user.id)
-    await check_params(message_user_id)
+    # await check_params(message.from_user.id)
     text_out = '\n'.join(
         [bs4_based_parser.__doc__,
          '<pre>URL = ' + bs4_based_parser.RESOURCE_URL,
          'HEADER = ' + ''.join(str(i) for i
                                in bs4_based_parser.RESOURCE_HEADER.items()),
          'PARAMS = '
-         + str(HANDLERS_PARAMS[message_user_id]['parser_params']) + '</pre>']
+         + str(HANDLERS_PARAMS[message.from_user.id]['parser_params'])
+         + '</pre>']
     )
 
     if isinstance(message, Message):
@@ -88,6 +100,35 @@ async def parser_menu_handler(message):
             text_out, disable_web_page_preview=True,
             reply_markup=kb.parser_menu_kb
         )
+
+
+@router.callback_query(F.data == 'parser_set_params')
+async def parser_set_params(message):
+    '''Sets parser's parametrs'''
+    # await check_params(message.from_user.id)
+    text_out = (text.TEXT_PARSER_PARAMS + '\n\n'
+                + text.TEXT_PARSER_PARAMS_EXAMPLE1 + '\n\n'
+                + text.TEXT_PARSER_PARAMS_EXAMPLE2)
+    HANDLERS_PARAMS.setdefault(
+        message.from_user.id, {}
+    )['status'] = 'edit_params'
+    # params.unload_params(HANDLERS_PARAMS)
+    await message.message.answer(text_out)
+
+
+@router.callback_query(F.data == 'show_id')
+@router.message(Command('show_id'))
+async def show_id_handler(message):
+    '''Shows a user id'''
+    text_out = text.TEXT_SHOW_ID.format(id=message.from_user.id,
+                                        name=message.from_user.full_name)
+    text_out += (f''' Статус: '''
+                 f'''{HANDLERS_PARAMS[message.from_user.id]['status']!r}''')
+
+    if isinstance(message, Message):
+        await message.answer(text_out)
+    else:
+        await message.message.edit_text(text_out, reply_markup=kb.iexit_kb)
 
 
 @router.callback_query(F.data.in_(
@@ -107,9 +148,9 @@ async def parser_handler(message):
         )
         return host, results, total_pages, response
 
-    await check_params(str(message.from_user.id))
+    # await check_params(message.from_user.id)
     parser_params = (
-        HANDLERS_PARAMS[str(message.from_user.id)]['parser_params'])
+        HANDLERS_PARAMS[message.from_user.id]['parser_params'])
 
     if isinstance(message, Message):
         host, results, total_pages, response = await continue_res()
@@ -142,7 +183,7 @@ async def parser_handler(message):
         for index, value in response.items():
             index = (parser_params.setdefault('page', 0)
                      * parser_params.setdefault('items_on_page', 20) + index)
-            values = value.values()
+            values = list(value.values())
             text_out.append(
                 f'''[{index}] {values[0]} {values[4]}\n\t{values[1]}\n\t'''
                 f''''{values[5]}', {values[2]}\n\t{values[3]}\n''')
@@ -164,26 +205,12 @@ async def parser_handler(message):
             reply_markup = await kb.get_nav_parser_kb(
                 'normal', parser_params.get('page') + 1, total_pages)
 
-        params.unload_params(HANDLERS_PARAMS)
+        # params.unload_params(HANDLERS_PARAMS)
 
         await message.message.edit_text(
             text_out, disable_web_page_preview=True,
             reply_markup=reply_markup
         )
-
-
-@router.callback_query(F.data == 'parser_set_params')
-async def parser_set_params(message):
-    '''Sets parser's parametrs'''
-    await check_params(str(message.from_user.id))
-    text_out = (text.TEXT_PARSER_PARAMS + '\n\n'
-                + text.TEXT_PARSER_PARAMS_EXAMPLE1 + '\n\n'
-                + text.TEXT_PARSER_PARAMS_EXAMPLE2)
-    HANDLERS_PARAMS.setdefault(
-        str(message.from_user.id), {}
-    )['status'] = 'edit_params'
-    params.unload_params(HANDLERS_PARAMS)
-    await message.message.answer(text_out)
 
 
 @router.callback_query(F.data.startswith('nav_transition_failure'))
@@ -201,25 +228,12 @@ async def parser_nav_transition_failure(message):
     await message.answer(text_out)
 
 
-@router.callback_query(F.data == 'show_id')
-@router.message(Command('show_id'))
-async def show_id_handler(message):
-    '''Shows a user id'''
-    text_out = text.TEXT_SHOW_ID.format(id=message.from_user.id,
-                                        name=message.from_user.full_name)
-
-    if isinstance(message, Message):
-        await message.answer(text_out)
-    else:
-        await message.message.edit_text(text_out, reply_markup=kb.iexit_kb)
-
-
 @router.message(Command('cancel'))
 async def cancel_handler(message: Message):
     '''Cancels current command'''
-    await check_params(str(message.from_user.id))
-    HANDLERS_PARAMS.setdefault(str(message.from_user.id), {})['status'] = None
-    params.unload_params(HANDLERS_PARAMS)
+    # await check_params(message.from_user.id)
+    HANDLERS_PARAMS.setdefault(message.from_user.id, {})['status'] = None
+    #  _params(HANDLERS_PARAMS)
     await message.answer('The command `/cancel` is done')
 
 
@@ -230,26 +244,36 @@ async def start_handler(message: Message):
         text.TEXT_GREET.format(name=message.from_user.full_name),
         reply_markup=kb.main_menu
     )
-    await check_params(str(message.from_user.id))
+    # await check_params(message.from_user.id)
 
 
 @router.message(Command('stop'))
 async def stop_handler(message):
     '''Stops the bot'''
     await message.answer('Shotdowning')
+    params.unload_params(HANDLERS_PARAMS)
     sys.exit(0)
 
 
 @router.message()
 async def message_handler(message: Message):
     '''Handles user's messages'''
-    message_user_id = str(message.from_user.id)
-    await check_params(message_user_id)
+    # await check_params(message.from_user.id)
+    user_params = HANDLERS_PARAMS[message.from_user.id]
 
-    if HANDLERS_PARAMS[message_user_id]['status'] == 'edit_params':
+    if user_params['status'] == 'edit_params':
         new_params = await bs4_based_parser.decoder_str_to_params(message.text)
-        HANDLERS_PARAMS[message_user_id]['status'] = None
-        HANDLERS_PARAMS[message_user_id]['parser_params'] = new_params
-        params.unload_params(HANDLERS_PARAMS)
+        user_params['status'] = None
+        user_params['parser_params'] = new_params
+        # params.unload_params(HANDLERS_PARAMS)
         await message.answer(text.TEXT_PARSER_PARAMS_SUCCESS,
                              reply_markup=kb.parser_params_kb)
+    elif user_params['status'] == 'go_to_page':
+        page = await bs4_based_parser.decoder_str_to_page(message.text)
+        if (page is not None
+                and 0 <= page <= user_params['parser_params']['total_pages']):
+            user_params['status'] = None
+            user_params['parser_params']['page'] = page
+            params.unload_params(HANDLERS_PARAMS)
+            await message.answer(f'Я получил номер страницы. {page!r}',
+                                 reply_markup=kb.parser_params_kb)

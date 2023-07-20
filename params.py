@@ -37,7 +37,16 @@ def load_params():
     '''Loads params from the file'''
     logger.info('load_params() is running...')
     with open('./data.json', 'r', encoding='UTF-8') as fin:
-        return json.loads(fin.read())
+        data = json.loads(fin.read())
+    return convert_to_original_keys(data)
+
+
+def convert_to_original_keys(dct: dict):
+    '''Converts to original keys'''
+    for key in list(dct):
+        if key.isdigit():
+            dct[int(key)] = dct.pop(key)
+    return dct
 
 
 def main():
