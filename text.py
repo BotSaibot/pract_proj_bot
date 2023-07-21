@@ -4,9 +4,6 @@ BUTTON_BACK_TO_MAIN_MENU = '↩ Выйти в меню'
 BUTTON_BACK_TO_PARSER = '↩ Назад'
 BUTTON_DEBUG = '⚙ Отладка'
 BUTTON_HELP = '🔎 Помощь'
-BUTTON_NAV_FAILURE_REASON_NEXT_END = '⚠ Вы уже на последней странице ⚠'
-BUTTON_NAV_FAILURE_REASON_OTHER = '⚠ Отказ в переключении ⚠'
-BUTTON_NAV_FAILURE_REASON_PRE_START = '⚠ Вы уже на первой странице ⚠'
 BUTTON_NAV_GO_TO_PAGE = '{page}/{pages}'
 BUTTON_NAV_PARSER_GO_TO_END = '⏭'
 BUTTON_NAV_PARSER_GO_TO_START = '⏮'
@@ -17,29 +14,75 @@ BUTTON_PARSER_PARAMS = '⚙ Изменить параметры'
 BUTTON_PARSER_START = '🚀 Запуск'
 BUTTON_SHOW_ID = '🆔 Мой идентификатор'
 # layouts
-TEXT_GREET = 'Привет, {name}, я бот ☺️'
-TEXT_HELP = ('<b>Команды:</b>\n'
-             '\t\t\t\t/start — показать приветственное сообщение и отобразить '
-             'меню;\n'
-             '\t\t\t\t/show_id — показать ваш идентификатор;\n'
-             '\t\t\t\t/main_menu — вызвать главное меню;\n'
-             '\t\t\t\t/help — показать эту справочную информацию;\n'
-             '\t\t\t\t/debug — показать отладочное сообщение.')
-TEXT_MAIN_MENU_TITLE = '☰ Главное меню'
-TEXT_PARSER_PARAMS = ('ХОРОШО. Пришлите мне список параметров. Пожалуйста, '
-                      'используйте этот формат:\n\nпараметр1 - значение\n'
-                      'параметр2 - другое значение')
-TEXT_PARSER_PARAMS_EXAMPLE1 = (
-    'Пример 1:\n\nenable_snippets - False\nitems_on_page - 2\nonly_with_salary'
-    ' - True\norder_by - publication_time\nored_clusters - True\npart_time - t'
-    'emporary_job_true\nprofessional_role - 96\nsalary - 270000\nsearch_field '
-    '- name, company_name, description\nstatus - non_archived\ntext - python'
-)
-TEXT_PARSER_PARAMS_EXAMPLE2 = (
-    'Пример 2:\n\nenable_snippets - False\nexperience - noExperience\nitems_on'
-    '_page - 2\norder_by - publication_time\nored_clusters - True\nprofessiona'
-    'l_role - 96\nschedule - remote\nsearch_field - name, company_name, descri'
-    'ption\nstatus - non_archived\ntext - python'
-)
-TEXT_PARSER_PARAMS_SUCCESS = 'Успех! Параметры парсера обновлены.'
-TEXT_SHOW_ID = '{name}, Ваш ID: {id}.'
+layouts = {
+    'cancel_handler': {
+        'text': (
+            'Команда {} отменена.\nОтправьте /help для получения списка команд'
+            '.'
+        )
+    },
+    'help_handler': {
+        'text': (
+            '<b>Команды:</b>\n\t\t\t\t/start — показать приветственное сообщен'
+            'ие и отобразить меню;\n\t\t\t\t/show_id — показать ваш идентифика'
+            'тор;\n\t\t\t\t/main_menu — вызвать главное меню;\n\t\t\t\t/help —'
+            ' показать эту справочную информацию;\n\t\t\t\t/debug — показать о'
+            'тладочное сообщение.'
+        )
+    },
+    'main_menu_handler': {
+        'text': '☰ Главное меню'
+    },
+    'message_handler': {
+        'edit_params': {
+            'text': 'Успех! Параметры парсера обновлены.'
+        },
+        'go_to_page': {
+            'text': 'Я получил номер страницы. {!r}',
+            'not a digit': 'Это не цифры.',
+            'invalid digit': 'Это цифры, но не в диапазоне (0, {}].',
+            'try': 'Попробуйте ещё раз'
+        }
+    },
+    'parser_go_to_page_handler': {
+        'text': (
+            'Пришлите мне номер страницы. (0 &lt; Номер &lt;= {amt})\nИспользу'
+            'йте только цифры.'
+        )
+    },
+    'parser_handler': {
+        'bottom': '{0}\n{1} -> Finded {2}, results per page {3}',
+        'text': '[{0}] {1} {5}\n\t{2}\n\t{6!r}, {3}\n\t{4}\n'
+    },
+    'parser_nav_transition_failure': {
+        'next_end': '⚠ Вы уже на последней странице ⚠',
+        'other': '⚠ Отказ в переключении ⚠',
+        'pre_start': '⚠ Вы уже на первой странице ⚠'
+    },
+    'parser_set_params': {
+        'example1': (
+            'Пример 1:\n\nenable_snippets - False\nitems_on_page - 2\nonly_wit'
+            'h_salary - True\norder_by - publication_time\nored_clusters - Tru'
+            'e\npart_time - temporary_job_true\nprofessional_role - 96\nsalary'
+            ' - 270000\nsearch_field - name, company_name, description\nstatus'
+            ' - non_archived\ntext - python'
+        ),
+        'example2': (
+            'Пример 2:\n\nenable_snippets - False\nexperience - noExperience\n'
+            'items_on_page - 2\norder_by - publication_time\nored_clusters - T'
+            'rue\nprofessional_role - 96\nschedule - remote\nsearch_field - na'
+            'me, company_name, description\nstatus - non_archived\ntext - pyth'
+            'on'
+        ),
+        'text': (
+            'ХОРОШО. Пришлите мне список параметров. Пожалуйста, используйте э'
+            'тот формат:\n\nпараметр1 - значение\nпараметр2 - другое значение'
+        )
+    },
+    'show_id_handler': {
+        'text': '{name}, Ваш ID: {id}. Статус: {status!r}'
+    },
+    'start_handler': {
+        'text': 'Привет, {name}, я бот ☺️'
+    }
+}
