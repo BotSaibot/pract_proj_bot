@@ -2,27 +2,7 @@
 import unittest
 import bs4_based_parser
 import params
-
-
-# Test cases to test Calulator methods
-# You always create  a child class derived from unittest.TestCase
-# class TestCalculator(unittest.TestCase):
-#     setUp method is overridden from the parent class TestCase
-#     def setUp(self):
-#         self.calculator = Calculator()
-#
-#     Each test method starts with the keyword test_
-#     def test_add(self):
-#         self.assertEqual(self.calculator.add(4, 7), 11)
-#
-#     def test_subtract(self):
-#         self.assertEqual(self.calculator.subtract(10, 5), 5)
-#
-#     def test_multiply(self):
-#         self.assertEqual(self.calculator.multiply(3, 7), 21)
-#
-#     def test_divide(self):
-#         self.assertEqual(self.calculator.divide(10, 2), 5)
+import text
 
 
 class TestParserDecoder(unittest.IsolatedAsyncioTestCase):
@@ -31,6 +11,7 @@ class TestParserDecoder(unittest.IsolatedAsyncioTestCase):
     # IsolatedAsyncioTestCase
     async def asyncSetUp(self):
         self.decoder = bs4_based_parser.decoder_str_to_params
+        self.msgs = text.layouts['message_handler']['edit_params']
 
     # Each test method starts with the keyword test_
     async def test_decoder(self):
@@ -52,7 +33,7 @@ class TestParserDecoder(unittest.IsolatedAsyncioTestCase):
             'status': 'non_archived',
             'text': 'python'
         }
-        result = await self.decoder(encrypted)
+        result = await self.decoder(encrypted, self.msgs)
         self.assertEqual(result, decrypted)
 
     async def test_decoder_not_default_separator(self):
@@ -74,29 +55,72 @@ class TestParserDecoder(unittest.IsolatedAsyncioTestCase):
             'status': 'non_archived',
             'text': 'python'
         }
-        result = await self.decoder(encrypted, sep='$')
+        result = await self.decoder(encrypted, self.msgs, sep='$')
         self.assertEqual(result, decrypted)
 
     async def test_decoder_without_separator(self):
         '''Decode without separator test'''
         encrypted = 'text python'
         with self.assertRaises(AssertionError) as exc:
-            await self.decoder(encrypted)
+            await self.decoder(encrypted, self.msgs)
         self.assertEqual(
             exc.exception.args[0],
-            "Line 0 'text python' does not have a ' - ' separator!")
+            # "Line 0 'text python' does not have a ' - ' separator!"
+            self.msgs['no separator'].format(0, encrypted, ' - '))
 
     async def test_decoder_without_not_default_separator(self):
         '''Decode without not default separator test'''
         encrypted = 'text python'
         with self.assertRaises(AssertionError) as exc:
-            await self.decoder(encrypted, sep='$')
+            await self.decoder(encrypted, self.msgs, sep='$')
         self.assertEqual(
             exc.exception.args[0],
-            "Line 0 'text python' does not have a '$' separator!")
+            # "Line 0 'text python' does not have a '$' separator!"
+            self.msgs['no separator'].format(0, encrypted, '$'))
 
-        result = await self.decoder(encrypted, sep=' ')
+        result = await self.decoder(encrypted, self.msgs, sep=' ')
         self.assertEqual(result, {'text': 'python'})
+
+
+class TestParserPageDecoder(unittest.IsolatedAsyncioTestCase):
+    '''Tests for the parser page decoder'''
+    async def asyncSetUp(self):
+        self.decoder = bs4_based_parser.decoder_str_to_page
+        self.msgs = text.layouts['message_handler']['go_to_page']
+        self.max_int = 10
+
+    async def test_decoder(self):
+        '''Decode '6':str to 5:int'''
+        result = await self.decoder('6', self.msgs, self.max_int)
+        self.assertEqual(result, 5)
+
+    async def test_decoder_with_not_a_digit(self):
+        '''Decode not a digit str to int'''
+        with self.assertRaises(AssertionError) as exc:
+            await self.decoder('text', self.msgs, self.max_int)
+        self.assertEqual(
+            exc.exception.args[0],
+            self.msgs['not a digit'])
+
+        with self.assertRaises(AssertionError) as exc:
+            await self.decoder('O12', self.msgs, self.max_int)
+        self.assertEqual(
+            exc.exception.args[0],
+            self.msgs['not a digit'])
+
+    async def test_decoder_with_invalid_digit(self):
+        '''Decode a invalid digit str to int'''
+        with self.assertRaises(AssertionError) as exc:
+            await self.decoder('0', self.msgs, self.max_int)
+        self.assertEqual(
+            exc.exception.args[0],
+            self.msgs['invalid digit'].format(self.max_int))
+
+        with self.assertRaises(AssertionError) as exc:
+            await self.decoder('6', self.msgs, 3)
+        self.assertEqual(
+            exc.exception.args[0],
+            self.msgs['invalid digit'].format(3))
 
 
 class TestGetResponse(unittest.IsolatedAsyncioTestCase):

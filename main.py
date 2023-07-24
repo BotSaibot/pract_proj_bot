@@ -29,6 +29,4 @@ if __name__ == '__main__':
                 '%(levelname)s:%(name)s:%(message)s'),
         datefmt='%d.%m.%Y %H:%M:%S'
     )
-    # format='%(filename)s:%(lineno)d #%(levelname)-8s '
-    #    '[%(asctime)s] - %(name)s - %(message)s')
     asyncio.get_event_loop().run_until_complete(main())

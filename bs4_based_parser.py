@@ -11,14 +11,13 @@ RESOURCE_HEADER = {'user-agent': 'py-parser/2.5'}
 logger = logging.getLogger(__name__)
 
 
-async def decoder_str_to_params(str_in: str, sep=' - ') -> dict:
+async def decoder_str_to_params(str_in: str, asserts_msgs, sep=' - ') -> dict:
     '''Decodes a string into parameters (dict).'''
     logger.info('decoder_str_to_params() is running...')
     out = {}
     for snum, sline in enumerate(str_in.splitlines()):
-        assert_message = (
-            f'Line {snum} {sline!r} does not have a {sep!r} separator!'
-        )
+        assert_message = asserts_msgs['no separator'].format(
+            snum, sline, sep)
         assert sep in sline, assert_message
         key, val = sline.split(sep=sep)
         if val.isdigit():
@@ -30,10 +29,12 @@ async def decoder_str_to_params(str_in: str, sep=' - ') -> dict:
     return out
 
 
-async def decoder_str_to_page(str_in: str) -> int | None:
+async def decoder_str_to_page(str_in: str, asserts_msgs, max_int: int) -> int:
     '''Decodes a string into page (int).'''
-    if str_in.isdigit():
-        return int(str_in) - 1
+    assert str_in.isdigit(), asserts_msgs['not a digit']
+    out = int(str_in) - 1
+    assert 0 < out <= max_int, asserts_msgs['invalid digit'].format(max_int)
+    return out
 
 
 async def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:

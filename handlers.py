@@ -21,11 +21,11 @@ logger = logging.getLogger(__name__)
 async def check_params(user_id):
     '''Checks handler's parameters by id.'''
     logger.info('check_params() is running...')
-    HANDLERS_PARAMS.update(params.load_params())
+    # HANDLERS_PARAMS.update(params.load_params())
     if user_id not in HANDLERS_PARAMS:
         HANDLERS_PARAMS[user_id] = {'status': None, 'parser_params': {},
                                     'message_history': []}
-        params.unload_params(HANDLERS_PARAMS)
+        # params.unload_params(HANDLERS_PARAMS)
 
 
 @router.callback_query(F.data == 'debug')
@@ -80,7 +80,7 @@ async def parser_go_to_page_handler(message):
     text_out = layouts['text'].format(amt=amt)
     await message.answer(text_out)
     ans = await message.message.answer(text_out)
-    user_params['message_history'].append(
+    user_params.setdefault('message_history', []).append(
         ans.message_id)
 
 
@@ -88,14 +88,13 @@ async def parser_go_to_page_handler(message):
 @router.message(Command('parser'))
 async def parser_menu_handler(message):
     '''Shows the parser menu'''
+    user_params = HANDLERS_PARAMS.setdefault(
+        message.from_user.id, {'parser_params': {}})
     text_out = '\n'.join(
         [bs4_based_parser.__doc__,
-         '<pre>URL = ' + bs4_based_parser.RESOURCE_URL,
-         'HEADER = ' + ''.join(str(i) for i
-                               in bs4_based_parser.RESOURCE_HEADER.items()),
-         'PARAMS = '
-         + str(HANDLERS_PARAMS[message.from_user.id]['parser_params'])
-         + '</pre>']
+         f'<pre>URL = {bs4_based_parser.RESOURCE_URL}',
+         f'HEADER = {str(bs4_based_parser.RESOURCE_HEADER)}',
+         f'PARAMS = {user_params.setdefault("parser_params", {})}</pre>']
     )
 
     if isinstance(message, Message):
@@ -114,9 +113,7 @@ async def parser_set_params(message):
     text_out = (
         layouts['text'] + '\n\n' + layouts['example1'] + '\n\n'
         + layouts['example2'])
-    HANDLERS_PARAMS.setdefault(
-        message.from_user.id, {}
-    )['status'] = 'edit_params'
+    HANDLERS_PARAMS[message.from_user.id]['status'] = 'edit_params'
     await message.message.answer(text_out)
 
 
@@ -127,7 +124,9 @@ async def show_id_handler(message):
     layouts = text.layouts[show_id_handler.__name__]
     text_out = layouts['text'].format(
         id=message.from_user.id, name=message.from_user.full_name,
-        status=HANDLERS_PARAMS[message.from_user.id]['status'])
+        status=HANDLERS_PARAMS.setdefault(
+            message.from_user.id, {'status': None})['status'])
+    text_out += f'\nПараметры: {HANDLERS_PARAMS[message.from_user.id]}'
 
     if isinstance(message, Message):
         await message.answer(text_out)
@@ -138,7 +137,6 @@ async def show_id_handler(message):
 @router.callback_query(F.data.in_(
     ('parser_start', 'nav_parser_next', 'nav_parser_pre', 'nav_parser_to_end',
      'nav_parser_to_start')))
-@router.message(Command('parser_start'))
 async def parser_handler(message):
     '''Shows the parser message'''
     async def continue_res():
@@ -155,59 +153,53 @@ async def parser_handler(message):
     layouts = text.layouts[parser_handler.__name__]
     parser_params = HANDLERS_PARAMS[message.from_user.id]['parser_params']
 
-    if isinstance(message, Message):
-        host, results, total_pages, response = await continue_res()
-        await message.answer((f'{host} -> Finded {results}, '
-                              f'total pages {total_pages}'),
-                             disable_web_page_preview=True)
+    if message.data == 'nav_parser_next':
+        parser_params.update(
+            [('page', parser_params.setdefault('page', 0) + 1),
+             ('hhtmFrom', 'vacancy_search_list')])
+    elif message.data == 'nav_parser_to_end':
+        parser_params.update(
+            [('page', parser_params.get('total_pages') - 1),
+             ('hhtmFrom', 'vacancy_search_list')])
+    elif message.data == 'nav_parser_to_start':
+        parser_params.update(
+            [('page', 0), ('hhtmFrom', 'vacancy_search_list')])
+    elif (message.data == 'nav_parser_pre'
+          and parser_params.get('page') is not None
+          and parser_params.get('page') > 0):
+        parser_params.update(
+            [('page', parser_params.setdefault('page', 0) - 1),
+             ('hhtmFrom', 'vacancy_search_list')])
+
+    host, results, total_pages, response = await continue_res()
+    response = await bs4_based_parser.simply_traversal(response, host)
+    text_out = []
+
+    for index, value in response.items():
+        index = (parser_params.setdefault('page', 0)
+                 * parser_params.setdefault('items_on_page', 20) + index)
+        values = list(value.values())
+        text_out.append(layouts['text'].format(index, *values))
+
+    text_out.append(layouts['bottom'].format(
+        '―' * 22, host, results, parser_params['items_on_page']))
+    text_out = '\n'.join(text_out)
+
+    if parser_params.get('page') == 0:
+        reply_markup = await kb.get_nav_parser_kb(
+            'start', parser_params.get('page') + 1, total_pages)
+        parser_params.update([('total_pages', total_pages)])
+    elif parser_params.get('page') + 1 == total_pages:
+        reply_markup = await kb.get_nav_parser_kb(
+            'end', parser_params.get('page') + 1, total_pages)
     else:
-        if message.data == 'nav_parser_next':
-            parser_params.update(
-                [('page', parser_params.setdefault('page', 0) + 1),
-                 ('hhtmFrom', 'vacancy_search_list')])
-        elif message.data == 'nav_parser_to_end':
-            parser_params.update(
-                [('page', parser_params.get('total_pages') - 1),
-                 ('hhtmFrom', 'vacancy_search_list')])
-        elif message.data == 'nav_parser_to_start':
-            parser_params.update(
-                [('page', 0), ('hhtmFrom', 'vacancy_search_list')])
-        elif (message.data == 'nav_parser_pre'
-              and parser_params.get('page') is not None
-              and parser_params.get('page') > 0):
-            parser_params.update(
-                [('page', parser_params.setdefault('page', 0) - 1),
-                 ('hhtmFrom', 'vacancy_search_list')])
+        reply_markup = await kb.get_nav_parser_kb(
+            'normal', parser_params.get('page') + 1, total_pages)
 
-        host, results, total_pages, response = await continue_res()
-        response = await bs4_based_parser.simply_traversal(response, host)
-        text_out = []
-
-        for index, value in response.items():
-            index = (parser_params.setdefault('page', 0)
-                     * parser_params.setdefault('items_on_page', 20) + index)
-            values = list(value.values())
-            text_out.append(layouts['text'].format(index, *values))
-
-        text_out.append(layouts['bottom'].format(
-            '―' * 22, host, results, parser_params['items_on_page']))
-        text_out = '\n'.join(text_out)
-
-        if parser_params.get('page') == 0:
-            reply_markup = await kb.get_nav_parser_kb(
-                'start', parser_params.get('page') + 1, total_pages)
-            parser_params.update([('total_pages', total_pages)])
-        elif parser_params.get('page') + 1 == total_pages:
-            reply_markup = await kb.get_nav_parser_kb(
-                'end', parser_params.get('page') + 1, total_pages)
-        else:
-            reply_markup = await kb.get_nav_parser_kb(
-                'normal', parser_params.get('page') + 1, total_pages)
-
-        await message.message.edit_text(
-            text_out, disable_web_page_preview=True,
-            reply_markup=reply_markup
-        )
+    await message.message.edit_text(
+        text_out, disable_web_page_preview=True,
+        reply_markup=reply_markup
+    )
 
 
 @router.callback_query(F.data.startswith('nav_transition_failure'))
@@ -230,8 +222,10 @@ async def parser_nav_transition_failure(message):
 async def cancel_handler(message: Message):
     '''Cancels current command'''
     layouts = text.layouts[cancel_handler.__name__]
-    status = HANDLERS_PARAMS[message.from_user.id]['status']
-    HANDLERS_PARAMS.setdefault(message.from_user.id, {})['status'] = None
+    user_params = HANDLERS_PARAMS.setdefault(
+        message.from_user.id, {'status': None})
+    status = user_params['status']
+    user_params['status'] = None
     await message.answer(layouts['text'].format(status))
 
 
@@ -257,19 +251,37 @@ async def stop_handler(message):
 async def message_handler(message: Message):
     '''Handles user's messages'''
     layouts = text.layouts[message_handler.__name__]
-    user_params = HANDLERS_PARAMS[message.from_user.id]
+    user_params = HANDLERS_PARAMS.setdefault(
+        message.from_user.id, {'status': None})
+    failure, failure_msg, failure_try = False, None, layouts['try']
 
     if user_params['status'] == 'edit_params':
         layouts = layouts[user_params['status']]
-        new_params = await bs4_based_parser.decoder_str_to_params(message.text)
-        user_params['status'] = None
-        user_params['parser_params'] = new_params
-        await message.answer(layouts['text'], reply_markup=kb.parser_params_kb)
+        try:
+            new_params = await bs4_based_parser.decoder_str_to_params(
+                message.text, layouts)
+        except AssertionError as error:
+            failure_msg = error.args[0]
+            failure = True
+
+        if not failure:
+            user_params['status'] = None
+            user_params['parser_params'] = new_params
+            await message.answer(layouts['text'],
+                                 reply_markup=kb.parser_params_kb)
+        else:
+            await message.answer(f'{failure_msg} {failure_try}')
     elif user_params['status'] == 'go_to_page':
         layouts = layouts[user_params['status']]
-        page = await bs4_based_parser.decoder_str_to_page(message.text)
-        if (page is not None
-                and 0 <= page <= user_params['parser_params']['total_pages']):
+        try:
+            page = await bs4_based_parser.decoder_str_to_page(
+                message.text, layouts,
+                user_params['parser_params']['total_pages'])
+        except AssertionError as error:
+            failure_msg = error.args[0]
+            failure = True
+
+        if not failure:
             user_params['status'] = None
             user_params['parser_params']['page'] = page
             await message.answer(
@@ -280,12 +292,6 @@ async def message_handler(message: Message):
                                     message_id=pre_message)
             user_params['message_history'].clear()
         else:
-            if page is None:
-                text_out = layouts['not a digit']
-            elif (0 > page
-                    or page > user_params['parser_params']['total_pages']):
-                text_out = layouts['invalid digit'].format(
-                    user_params["parser_params"]["total_pages"])
-            ans = await message.answer(f'{text_out} {layouts["try"]}')
+            ans = await message.answer(f'{failure_msg} {failure_try}')
             user_params['message_history'].extend([message.message_id,
                                                    ans.message_id])
