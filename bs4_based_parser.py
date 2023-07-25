@@ -32,9 +32,9 @@ async def decoder_str_to_params(str_in: str, asserts_msgs, sep=' - ') -> dict:
 async def decoder_str_to_page(str_in: str, asserts_msgs, max_int: int) -> int:
     '''Decodes a string into page (int).'''
     assert str_in.isdigit(), asserts_msgs['not a digit']
-    out = int(str_in) - 1
+    out = int(str_in)
     assert 0 < out <= max_int, asserts_msgs['invalid digit'].format(max_int)
-    return out
+    return out - 1
 
 
 async def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:
@@ -45,13 +45,11 @@ async def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:
     host_url = doc.find('link', {'rel': 'canonical'})['href']
     host_url = host_url.replace('/search/vacancy', '')
 
-    total_results = int(
-        ''.join(
-            bs4.re.findall(
-                r'\d+',
-                doc.find('h1', {'class': 'bloko-header-section-3'}).getText())
-        )
-    )
+    total_results = min(int(
+        ''.join(bs4.re.findall(
+            r'\d+',
+            doc.find('h1', {'class': 'bloko-header-section-3'}).getText())
+        )), 2000)
     if params.get('items_on_page') is not None:
         total_pages = (total_results // params['items_on_page']
                        + (total_results % params['items_on_page'] > 0))
@@ -76,6 +74,9 @@ async def get_response(**kwargs) -> bs4.BeautifulSoup:
         async with session.get(**kwargs, timeout=timeout) as response:
 
             response.raise_for_status()
+            # FIXME: catching the exception # [fixme]
+            # aiohttp.client_exceptions.ClientResponseError: 502,
+            # message='Bad Gateway', url=URL('https://google.com')
             check = 'text/html' in response.headers.get('Content-Type')
             logger.debug(
                 'session response status %s, content-type %r',
@@ -84,7 +85,7 @@ async def get_response(**kwargs) -> bs4.BeautifulSoup:
             html = await response.text()
 
     assert check, 'Response has the wrong content-type!'
-    soup = bs4.BeautifulSoup(html, 'html.parser')
+    soup = bs4.BeautifulSoup(html, 'html.parser', multi_valued_attributes=None)
     return soup
 
 
