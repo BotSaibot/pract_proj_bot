@@ -30,6 +30,9 @@ layouts = {
             '.'
         )
     },
+    'debug_message_handler': {
+        'text': '⚙ Это отладочное сообщение! ⚙'
+    },
     'help_handler': {
         'text': (
             '<b>Команды:</b>\n\t\t\t\t/start — показать приветственное сообщен'

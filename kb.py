@@ -49,7 +49,7 @@ parser_params_kb = InlineKeyboardMarkup(
 async def get_nav_parser_kb(option: str, page, total_page: int):
     '''Gives a navigational keyboard of the parser.
     option: str - type of a navigational keyboard,
-    page: int - сurrent page number,
+    page: int - current page number,
     total_page: int - total number of pages.'''
 
     if option == 'normal':

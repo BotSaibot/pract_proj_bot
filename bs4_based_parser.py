@@ -1,4 +1,5 @@
-'''Парсер (веб-скрапер) объявлений с HeadHunter.'''
+'''Parser (web scraper) of vacancies from HeadHunter.
+Парсер (веб-скрапер) объявлений с HeadHunter.'''
 import logging
 import aiohttp
 import bs4
@@ -59,9 +60,9 @@ async def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:
     return host_url, total_results, total_pages
 
 
-async def get_response(**kwargs) -> bs4.BeautifulSoup:
-    '''Возвращает проанализированный HTML-документ ответа от ресурса по URL
-    адресу.'''
+async def get_response(**kwargs) -> bs4.BeautifulSoup | str:
+    '''Returns the parsed HTML document of the response from the source at the 
+    URL.'''
     logger.info('get_response() is running...')
     assert 'url' in kwargs, '''The 'url' keyword argument was not passed!'''
     timeout = aiohttp.ClientTimeout(total=6)
@@ -73,7 +74,12 @@ async def get_response(**kwargs) -> bs4.BeautifulSoup:
     async with aiohttp.ClientSession() as session:
         async with session.get(**kwargs, timeout=timeout) as response:
 
-            response.raise_for_status()
+            try:
+                response.raise_for_status()
+            except aiohttp.client_exceptions.ClientResponseError as exc:
+                exc_str = str(exc)
+                logger.warning('Catching the exception %r', exc_str)
+                return exc_str
             # FIXME: catching the exception # [fixme]
             # aiohttp.client_exceptions.ClientResponseError: 502,
             # message='Bad Gateway', url=URL('https://google.com')
@@ -90,7 +96,7 @@ async def get_response(**kwargs) -> bs4.BeautifulSoup:
 
 
 async def simply_traversal(doc: bs4.BeautifulSoup, host: str, index=0) -> dict:
-    '''Простой обход документа'''
+    '''Simple document parsing.'''
     logger.info('simply_traversal() is running...')
 
     out = {}
