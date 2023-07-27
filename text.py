@@ -45,16 +45,15 @@ layouts = {
     'main_menu_handler': {
         'text': '☰ Главное меню'
     },
-    'message_handler': {
-        'edit_params': {
+    'process_set_params': {
+        'FSMParser:set_params': {
             'text': '<b>Успех!</b> Параметры парсера обновлены.',
             'no separator': 'Строка {} {!r} не имеет разделителя {!r}!'
         },
-        'go_to_page': {
+        'FSMParser:go_to_page': {
             'not a digit': 'Это не цифры.',
             'invalid digit': 'Это цифры, но не в диапазоне (0, {}].'
         },
-        'try': '<b>Попробуйте ещё раз.</b>',
     },
     'parser_go_to_page_handler': {
         'text': (
@@ -96,5 +95,6 @@ layouts = {
     },
     'start_handler': {
         'text': 'Привет, {name}, я бот ☺️'
-    }
+    },
+    'try_again': '<b>Попробуйте ещё раз.</b>',
 }

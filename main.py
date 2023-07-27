@@ -18,11 +18,10 @@ async def main():
     disp = Dispatcher(storage=MemoryStorage())
     disp.include_router(router)
     disp.message.middleware(ChatActionMiddleware())
-    # disp.callback_query.middleware(ChatActionMiddleware())
     await bot.delete_webhook(drop_pending_updates=True)
     HANDLERS_PARAMS.update(load_params())
-    await disp.start_polling(bot,
-                             allowed_updates=disp.resolve_used_update_types())
+    await disp.start_polling(
+        bot, allowed_updates=disp.resolve_used_update_types())
 
 
 if __name__ == '__main__':

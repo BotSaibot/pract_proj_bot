@@ -2,7 +2,10 @@
 import sys
 import logging
 from aiogram import F, Router
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
+from aiogram.filters.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import default_state
 from aiogram.methods.delete_message import DeleteMessage
 from aiogram.types import Message
 
@@ -18,18 +21,27 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-# async def check_params(user_id):
-#     '''Checks handler's parameters by id.'''
-#     logger.info('check_params() is running...')
-#     HANDLERS_PARAMS.update(params.load_params())
-#     if user_id not in HANDLERS_PARAMS:
-#         HANDLERS_PARAMS[user_id] = {'status': None, 'parser_params': {},
-#                                     'message_history': []}
-#         params.unload_params(HANDLERS_PARAMS)
+class FSMParser(StatesGroup):
+    active = State()
+    go_to_page = State()
+    set_params = State()
 
 
-@router.callback_query(F.data == 'debug')
-@router.message(Command('debug'))
+async def process_cancel(state: FSMContext, user_id: str):
+    '''process cancel state'''
+    current_state = await state.get_state()
+
+    if current_state is None:
+        return
+    if current_state in ('FSMParser:go_to_page', 'FSMParser:set_params'):
+        user_params = HANDLERS_PARAMS[user_id]
+        user_params['message_history'].clear()
+
+    await state.clear()
+
+
+@router.callback_query(F.data == 'debug', StateFilter(default_state))
+@router.message(Command('debug'), StateFilter(default_state))
 async def debug_message_handler(message):
     '''Shows the debug message'''
     layouts = text.layouts[debug_message_handler.__name__]
@@ -57,9 +69,10 @@ async def help_handler(message):
 
 @router.callback_query(F.data == 'main_menu')
 @router.message(Command('main_menu'))
-async def main_menu_handler(message):
+async def main_menu_handler(message, state: FSMContext):
     '''Calls the main menu'''
     layouts = text.layouts[main_menu_handler.__name__]
+    await process_cancel(state, message.from_user.id)
 
     if isinstance(message, Message):
         await message.answer(layouts['text'], reply_markup=kb.main_menu)
@@ -68,24 +81,28 @@ async def main_menu_handler(message):
             layouts['text'], reply_markup=kb.main_menu)
 
 
-@router.callback_query(F.data == 'nav_go_to_page')
-async def parser_go_to_page_handler(message):
+@router.callback_query(
+    F.data == 'nav_go_to_page', StateFilter(FSMParser.active))
+async def parser_go_to_page_handler(message, state: FSMContext):
     '''Goes to a page'''
     layouts = text.layouts[parser_go_to_page_handler.__name__]
     user_params = HANDLERS_PARAMS[message.from_user.id]
-    user_params['status'] = 'go_to_page'
+
+    await state.set_state(FSMParser.go_to_page)
     amt = user_params['parser_params']['total_pages']
     text_out = layouts['text'].format(amt=amt)
     await message.answer(text_out.translate(text_out.maketrans(
         dict(zip('&<lt;</b>', ['<'] + [None] * 8)))))
     ans = await message.message.answer(text_out)
     user_params.setdefault('message_history', []).extend(
-        [ans.message_id, message.message.message_id])
+        [(ans.chat.id, ans.message_id),
+         (message.message.chat.id, message.message.message_id)])
 
 
-@router.callback_query(F.data == 'parser')
+@router.callback_query(
+    F.data == 'parser', StateFilter(default_state, FSMParser.active))
 @router.message(Command('parser'))
-async def parser_menu_handler(message):
+async def parser_menu_handler(message, state: FSMContext):
     '''Shows the parser menu'''
     user_params = HANDLERS_PARAMS.setdefault(
         message.from_user.id, {'parser_params': {}})
@@ -98,33 +115,35 @@ async def parser_menu_handler(message):
     if isinstance(message, Message):
         await message.answer(text_out)
     else:
+        await state.set_state(FSMParser.active)
         await message.message.edit_text(
             text_out, disable_web_page_preview=True,
             reply_markup=kb.parser_menu_kb)
 
 
-@router.callback_query(F.data == 'parser_set_params')
-async def parser_set_params(message):
+@router.callback_query(
+    F.data == 'parser_set_params', StateFilter(FSMParser.active))
+async def parser_set_params(message, state: FSMContext):
     '''Sets parser's parametrs'''
     layouts = text.layouts[parser_set_params.__name__]
+    user_params = HANDLERS_PARAMS[message.from_user.id]
     text_out = (
         layouts['text'] + '\n\n' + layouts['example1'] + '\n\n'
         + layouts['example2'])
-    HANDLERS_PARAMS[message.from_user.id]['status'] = 'edit_params'
-    await message.message.answer(text_out)
+    user_params.setdefault('message_history', []).append(
+        (message.message.chat.id, message.message.message_id))
+    await state.set_state(FSMParser.set_params)
+    await message.message.edit_text(text_out)
 
 
 @router.callback_query(F.data == 'show_id')
 @router.message(Command('show_id'))
-async def show_id_handler(message):
+async def show_id_handler(message, state: FSMContext):
     '''Shows a user id'''
     layouts = text.layouts[show_id_handler.__name__]
     text_out = layouts['text'].format(
         id=message.from_user.id, name=message.from_user.full_name,
-        status=HANDLERS_PARAMS.setdefault(
-            message.from_user.id,
-            {'status': None}).setdefault('status', None))
-    # text_out += f'\nПараметры: {HANDLERS_PARAMS[message.from_user.id]}'
+        status=await state.get_state())
 
     if isinstance(message, Message):
         await message.answer(text_out)
@@ -134,8 +153,10 @@ async def show_id_handler(message):
 
 @router.callback_query(F.data.in_(
     ('parser_start', 'nav_parser_next', 'nav_parser_pre', 'nav_parser_to_end',
-     'nav_parser_to_start')), flags={'chat_action': 'typing'})
-async def parser_handler(message):
+     'nav_parser_to_start')),
+    StateFilter(FSMParser.active),
+    flags={'chat_action': 'typing'})
+async def parser_handler(message, state: FSMContext):
     '''Shows the parser message'''
     async def continue_res():
         response = await bs4_based_parser.get_response(
@@ -215,7 +236,8 @@ async def parser_handler(message):
             reply_markup=reply_markup)
 
 
-@router.callback_query(F.data.startswith('nav_transition_failure'))
+@router.callback_query(
+    F.data.startswith('nav_transition_failure'), StateFilter(FSMParser.active))
 async def parser_nav_transition_failure(message):
     '''Informs about the failure and it's reason'''
     layouts = text.layouts[parser_nav_transition_failure.__name__]
@@ -232,21 +254,15 @@ async def parser_nav_transition_failure(message):
 
 
 @router.message(Command('cancel'))
-async def cancel_handler(message: Message):
+async def cancel_handler(message: Message, state: FSMContext):
     '''Cancels current command'''
     layouts = text.layouts[cancel_handler.__name__]
-    user_params = HANDLERS_PARAMS.setdefault(
-        message.from_user.id, {'status': None})
-    status = user_params['status']
-
-    if status == 'go_to_page':
-        user_params['message_history'].clear()
-
-    user_params['status'] = None
+    status = await state.get_state()
+    await process_cancel(state, message.from_user.id)
     await message.answer(layouts['text'].format(status))
 
 
-@router.message(Command('start'))
+@router.message(Command('start'), StateFilter(default_state))
 async def start_handler(message: Message):
     '''Shows a greeting'''
     layouts = text.layouts[start_handler.__name__]
@@ -264,53 +280,82 @@ async def stop_handler(message):
     sys.exit(0)
 
 
-@router.message()
-async def message_handler(message: Message):
-    '''Handles user's messages'''
-    layouts = text.layouts[message_handler.__name__]
-    user_params = HANDLERS_PARAMS.setdefault(
-        message.from_user.id, {'status': None})
-    failure, failure_msg, failure_try = False, None, layouts['try']
+@router.message(StateFilter(FSMParser.set_params, FSMParser.go_to_page))
+async def process_set_params(message: Message, state: FSMContext):
+    '''Handles user's messages with parameters'''
+    user_params = HANDLERS_PARAMS[message.from_user.id]
+    message_history = user_params['message_history']
+    mode = await state.get_state()
+    layouts = text.layouts[process_set_params.__name__][mode]
+    mode = mode == 'FSMParser:set_params'
+    failure, failure_msg, failure_try = False, None, text.layouts['try_again']
 
-    if user_params['status'] == 'edit_params':
-        layouts = layouts[user_params['status']]
-        try:
+    try:
+
+        if mode:
             new_params = await bs4_based_parser.decoder_str_to_params(
                 message.text, layouts)
-        except AssertionError as error:
-            failure_msg = error.args[0]
-            failure = True
-
-        if not failure:
-            user_params['status'] = None
-            user_params['parser_params'] = new_params
-            await message.answer(layouts['text'],
-                                 reply_markup=kb.parser_params_kb)
         else:
-            await message.answer(f'{failure_msg} {failure_try}')
-
-    elif user_params['status'] == 'go_to_page':
-        layouts = layouts[user_params['status']]
-        message_history = user_params['message_history']
-        try:
             page = await bs4_based_parser.decoder_str_to_page(
                 message.text, layouts,
                 user_params['parser_params']['total_pages'])
-        except AssertionError as error:
-            failure_msg = error.args[0]
-            failure = True
 
-        if not failure:
-            user_params['status'] = None
-            user_params['parser_params']['page'] = page
-            message_history.append(message.message_id)
-            await parser_handler(message)
+    except AssertionError as error:
+        failure_msg = error.args[0]
+        failure = True
 
-            for pre_message in message_history:
-                await DeleteMessage(chat_id=message.chat.id,
-                                    message_id=pre_message)
+    if not failure:
 
-            message_history.clear()
+        if mode:
+            await state.clear()
+            user_params['parser_params'] = new_params
         else:
-            ans = await message.answer(f'{failure_msg} {failure_try}')
-            message_history.extend([message.message_id, ans.message_id])
+            await state.set_state(FSMParser.active)
+            user_params['parser_params']['page'] = page
+
+        message_history.append((message.chat.id, message.message_id))
+
+        if mode:
+            await message.answer(
+                layouts['text'], reply_markup=kb.parser_params_kb)
+        else:
+            await parser_handler(message, state)
+
+        for chat_id, message_id in message_history:
+            await DeleteMessage(chat_id=chat_id, message_id=message_id)
+
+        message_history.clear()
+    else:
+        ans = await message.answer(f'{failure_msg} {failure_try}')
+        message_history.extend([(ans.chat.id, ans.message_id),
+                                (message.chat.id, message.message_id)])
+
+
+# @router.message(FSMParser.go_to_page)
+# async def process_go_to_page(message: Message, state: FSMContext):
+#     '''Handles user's messages with number of page'''
+#     layouts = text.layouts[process_go_to_page.__name__]
+#     user_params = HANDLERS_PARAMS[message.from_user.id]
+#     message_history = user_params['message_history']
+#     failure, failure_msg, failure_try = False, None, text.layouts['try_again']
+
+#     try:
+#         page = await bs4_based_parser.decoder_str_to_page(
+#             message.text, layouts, user_params['parser_params']['total_pages'])
+#     except AssertionError as error:
+#         failure_msg = error.args[0]
+#         failure = True
+
+#     if not failure:
+#         await state.set_state(FSMParser.active)
+#         user_params['parser_params']['page'] = page
+#         message_history.append((message.chat.id, message.message_id))
+#         await parser_handler(message, state)
+
+#         for chat_id, message_id in message_history:
+#             await DeleteMessage(chat_id=chat_id, message_id=message_id)
+
+#         message_history.clear()
+#     else:
+#         ans = await message.answer(f'{failure_msg} {failure_try}')
+#         message_history.extend([message.message_id, ans.message_id])
