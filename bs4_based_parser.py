@@ -61,8 +61,8 @@ async def get_general_info(doc: bs4.BeautifulSoup, params: dict) -> tuple:
 
 
 async def get_response(**kwargs) -> bs4.BeautifulSoup | str:
-    '''Returns the parsed HTML document of the response from the source at the 
-    URL.'''
+    '''Returns the parsed HTML document of the
+    response from the source at the URL.'''
     logger.info('get_response() is running...')
     assert 'url' in kwargs, '''The 'url' keyword argument was not passed!'''
     timeout = aiohttp.ClientTimeout(total=6)
@@ -80,9 +80,7 @@ async def get_response(**kwargs) -> bs4.BeautifulSoup | str:
                 exc_str = str(exc)
                 logger.warning('Catching the exception %r', exc_str)
                 return exc_str
-            # FIXME: catching the exception # [fixme]
-            # aiohttp.client_exceptions.ClientResponseError: 502,
-            # message='Bad Gateway', url=URL('https://google.com')
+
             check = 'text/html' in response.headers.get('Content-Type')
             logger.debug(
                 'session response status %s, content-type %r',

@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class FSMParser(StatesGroup):
+    '''State group for the parser'''
     active = State()
     go_to_page = State()
     set_params = State()
@@ -38,6 +39,23 @@ async def process_cancel(state: FSMContext, user_id: str):
         user_params['message_history'].clear()
 
     await state.clear()
+
+
+async def continue_res(parser_params: dict) -> tuple:
+    '''Continues to get a result for the parser'''
+    response = await bs4_based_parser.get_response(
+        url=bs4_based_parser.RESOURCE_URL,
+        headers=bs4_based_parser.RESOURCE_HEADER,
+        params=parser_params
+    )
+
+    if isinstance(response, str):
+        return response
+
+    host, results, total_pages = await bs4_based_parser.get_general_info(
+        response, parser_params
+    )
+    return host, results, total_pages, response
 
 
 @router.callback_query(F.data == 'debug', StateFilter(default_state))
@@ -156,23 +174,8 @@ async def show_id_handler(message, state: FSMContext):
      'nav_parser_to_start')),
     StateFilter(FSMParser.active),
     flags={'chat_action': 'typing'})
-async def parser_handler(message, state: FSMContext):
+async def parser_handler(message):
     '''Shows the parser message'''
-    async def continue_res():
-        response = await bs4_based_parser.get_response(
-            url=bs4_based_parser.RESOURCE_URL,
-            headers=bs4_based_parser.RESOURCE_HEADER,
-            params=parser_params
-        )
-
-        if isinstance(response, str):
-            return response
-
-        host, results, total_pages = await bs4_based_parser.get_general_info(
-            response, parser_params
-        )
-        return host, results, total_pages, response
-
     layouts = text.layouts[parser_handler.__name__]
     parser_params = HANDLERS_PARAMS[message.from_user.id]['parser_params']
     ismessage = isinstance(message, Message)
@@ -194,7 +197,7 @@ async def parser_handler(message, state: FSMContext):
 
     parser_params.update([('hhtmFrom', 'vacancy_search_list')])
 
-    response = await continue_res()
+    response = await continue_res(parser_params)
 
     if isinstance(response, str):
         text_out = response
@@ -216,14 +219,14 @@ async def parser_handler(message, state: FSMContext):
         text_out = '\n'.join(text_out)
 
     if parser_params.get('page') == 0:
-        reply_markup = await kb.get_nav_parser_kb(
+        reply_markup = await kb.get_nav_parser_bottom_kb(
             'start', parser_params.get('page') + 1, total_pages)
         parser_params.update([('total_pages', total_pages)])
     elif parser_params.get('page') + 1 == total_pages:
-        reply_markup = await kb.get_nav_parser_kb(
+        reply_markup = await kb.get_nav_parser_bottom_kb(
             'end', parser_params.get('page') + 1, total_pages)
     else:
-        reply_markup = await kb.get_nav_parser_kb(
+        reply_markup = await kb.get_nav_parser_bottom_kb(
             'normal', parser_params.get('page') + 1, total_pages)
 
     if ismessage:
@@ -319,7 +322,7 @@ async def process_set_params(message: Message, state: FSMContext):
             await message.answer(
                 layouts['text'], reply_markup=kb.parser_params_kb)
         else:
-            await parser_handler(message, state)
+            await parser_handler(message)
 
         for chat_id, message_id in message_history:
             await DeleteMessage(chat_id=chat_id, message_id=message_id)
@@ -329,33 +332,3 @@ async def process_set_params(message: Message, state: FSMContext):
         ans = await message.answer(f'{failure_msg} {failure_try}')
         message_history.extend([(ans.chat.id, ans.message_id),
                                 (message.chat.id, message.message_id)])
-
-
-# @router.message(FSMParser.go_to_page)
-# async def process_go_to_page(message: Message, state: FSMContext):
-#     '''Handles user's messages with number of page'''
-#     layouts = text.layouts[process_go_to_page.__name__]
-#     user_params = HANDLERS_PARAMS[message.from_user.id]
-#     message_history = user_params['message_history']
-#     failure, failure_msg, failure_try = False, None, text.layouts['try_again']
-
-#     try:
-#         page = await bs4_based_parser.decoder_str_to_page(
-#             message.text, layouts, user_params['parser_params']['total_pages'])
-#     except AssertionError as error:
-#         failure_msg = error.args[0]
-#         failure = True
-
-#     if not failure:
-#         await state.set_state(FSMParser.active)
-#         user_params['parser_params']['page'] = page
-#         message_history.append((message.chat.id, message.message_id))
-#         await parser_handler(message, state)
-
-#         for chat_id, message_id in message_history:
-#             await DeleteMessage(chat_id=chat_id, message_id=message_id)
-
-#         message_history.clear()
-#     else:
-#         ans = await message.answer(f'{failure_msg} {failure_try}')
-#         message_history.extend([message.message_id, ans.message_id])
