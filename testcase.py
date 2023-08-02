@@ -11,7 +11,7 @@ class TestParserDecoder(unittest.IsolatedAsyncioTestCase):
     # IsolatedAsyncioTestCase
     async def asyncSetUp(self):
         self.decoder = bs4_based_parser.decoder_str_to_params
-        self.msgs = text.layouts['message_handler']['edit_params']
+        self.msgs = text.layouts['process_set_params']['FSMParser:set_params']
 
     # Each test method starts with the keyword test_
     async def test_decoder(self):
@@ -86,7 +86,7 @@ class TestParserPageDecoder(unittest.IsolatedAsyncioTestCase):
     '''Tests for the parser page decoder'''
     async def asyncSetUp(self):
         self.decoder = bs4_based_parser.decoder_str_to_page
-        self.msgs = text.layouts['message_handler']['go_to_page']
+        self.msgs = text.layouts['process_set_params']['FSMParser:go_to_page']
         self.max_int = 10
 
     async def test_decoder(self):
